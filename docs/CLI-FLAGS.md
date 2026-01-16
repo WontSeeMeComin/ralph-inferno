@@ -16,6 +16,14 @@ The main entry point for running Ralph on the VM.
 ./ralph.sh --help             # Show help
 ```
 
+## LLM Smoke Test
+
+To verify your configured inference provider (LM Studio/Ollama/OpenRouter/Claude fallback):
+
+```bash
+./.ralph/scripts/llm-smoke-test.sh
+```
+
 ### Flags
 
 | Flag | Short | Description |

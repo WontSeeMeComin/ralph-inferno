@@ -1,12 +1,14 @@
 # Token Optimization
 
-Ralph is designed to be cost-efficient with Claude API tokens.
+Ralph is designed to be cost-efficient with Claude/OpenRouter API tokens.
+
+If you use local providers (LM Studio/Ollama), inference cost is typically **$0**, but you still want to keep prompts small for latency.
 
 ## Strategies
 
 ### 1. Fresh Context Per Spec
 
-Each spec runs in a fresh Claude session. This prevents context bloat.
+Each spec runs in a fresh LLM session. This prevents context bloat.
 
 ```
 Spec 1: [fresh context] → build → done

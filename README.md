@@ -35,6 +35,13 @@ AI-driven autonomous development workflow.
   - Anthropic API key (`ANTHROPIC_API_KEY`), or
   - Claude subscription (requires `claude login` on the VM)
 
+**Optional (multi-provider inference):**
+- A reachable local inference server (for text-only steps like auto-CR generation)
+  - **LM Studio** (OpenAI-compatible HTTP)
+  - **Ollama** (native HTTP API)
+- Or an API gateway provider:
+  - **OpenRouter** (OpenAI-compatible HTTP; requires `OPENROUTER_API_KEY`)
+
 **Optional:**
 - Cloud CLI (`hcloud`, `gcloud`, `doctl`, `aws`) for VM management
 - [ntfy.sh](https://ntfy.sh) for notifications
@@ -187,6 +194,24 @@ Configuration is stored in `.ralph/config.json`:
   "claude": {
     "auth_method": "subscription"
   },
+  "llm": {
+    "provider": "claude",
+    "fallback_provider": "claude",
+    "timeout_seconds": 120,
+    "max_retries": 2,
+    "lmstudio": {
+      "base_url": "http://localhost:1234",
+      "model": "qwen/qwen3-next-80b"
+    },
+    "ollama": {
+      "host": "http://localhost:11434",
+      "model": "qwen3"
+    },
+    "openrouter": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "model": "openai/gpt-4o-mini"
+    }
+  },
   "notifications": {
     "ntfy_enabled": true,
     "ntfy_topic": "ralph-notifications"
@@ -194,11 +219,31 @@ Configuration is stored in `.ralph/config.json`:
 }
 ```
 
+### LLM Provider Selection
+
+Ralph now supports multiple inference providers **for text-generation steps** (e.g. auto Change Requests):
+
+- `claude` (default)
+- `lmstudio` (OpenAI-compatible)
+- `ollama` (native API)
+- `openrouter` (OpenAI-compatible)
+- `auto` (try LM Studio → Ollama → OpenRouter → Claude)
+
+You can override config via environment variables:
+
+- `RALPH_LLM_PROVIDER` (e.g. `lmstudio`)
+- `RALPH_LMSTUDIO_BASE_URL` (e.g. `http://192.168.12.239:1234`)
+- `RALPH_LMSTUDIO_MODEL` (e.g. `qwen/qwen3-next-80b`)
+- `OPENROUTER_API_KEY` (for OpenRouter)
+
+See: [docs/LLM-PROVIDERS.md](docs/LLM-PROVIDERS.md)
+
 ## Documentation
 
 - [Architecture](docs/ARCHITECTURE.md) - System overview and memory model
 - [CLI Flags](docs/CLI-FLAGS.md) - All ralph.sh options
 - [Token Optimization](docs/TOKEN-OPTIMIZATION.md) - Cost-saving strategies
+- [LLM Providers](docs/LLM-PROVIDERS.md) - Multi-provider inference configuration
 
 ## Credits & Inspiration
 

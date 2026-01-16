@@ -50,6 +50,13 @@ run_spec() {
 }
 ```
 
+### Multi-provider inference
+
+Ralph now includes a small provider abstraction in `lib/llm.sh`.
+
+- **Claude** remains the default and safest option.
+- **LM Studio / Ollama / OpenRouter** can be configured for text-generation steps (e.g. auto Change Request generation) and will gracefully fall back when unavailable.
+
 ## Middle Loop (Orchestrator)
 
 ```bash
@@ -96,6 +103,8 @@ notify "⚠️ Needs help"
 │   ├── notify.sh         # ntfy notifications
 │   ├── git-utils.sh      # commit, push, safety checks
 │   ├── rate-limit.sh     # Handle rate limits
+│   ├── llm.sh            # Multi-provider LLM wrapper
+│   ├── llm-config.sh     # Centralized provider settings + env overrides
 │   ├── tokens.sh         # Cost tracking
 │   └── parallel.sh       # Worktree management
 │

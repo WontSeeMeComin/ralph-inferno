@@ -1,0 +1,86 @@
+# LLM Providers (Multi-Provider Inference)
+
+Ralph Inferno supports multiple inference backends **in addition to Claude**.
+
+Today this is primarily used for **text-generation steps** (e.g. auto Change Request generation), while keeping existing Claude-based workflows intact.
+
+## Providers
+
+| Provider | Use case | Protocol |
+|---|---|---|
+| `claude` | Default, safest fallback | Claude Code CLI |
+| `lmstudio` | Local inference via LM Studio | OpenAI-compatible HTTP (`/v1/chat/completions`) |
+| `ollama` | Local inference via Ollama | Native HTTP (`/api/chat`) |
+| `openrouter` | API gateway for many models | OpenAI-compatible HTTP |
+| `auto` | Try local first, then gateways, then Claude | Health-check based |
+
+## Config (`.ralph/config.json`)
+
+Add/update the `llm` section:
+
+```json
+{
+  "llm": {
+    "provider": "auto",
+    "fallback_provider": "claude",
+    "timeout_seconds": 120,
+    "max_retries": 2,
+    "lmstudio": {
+      "base_url": "http://192.168.12.239:1234",
+      "model": "qwen/qwen3-next-80b"
+    },
+    "ollama": {
+      "host": "http://localhost:11434",
+      "model": "qwen3"
+    },
+    "openrouter": {
+      "base_url": "https://openrouter.ai/api/v1",
+      "model": "openai/gpt-4o-mini"
+    }
+  }
+}
+```
+
+### LM Studio notes
+
+- `base_url` can be either:
+  - `http://host:1234` (Ralph will append `/v1`), or
+  - `http://host:1234/v1`
+
+## Environment variable overrides
+
+Environment variables always override JSON config:
+
+- `RALPH_LLM_PROVIDER` = `auto|lmstudio|ollama|openrouter|claude`
+- `RALPH_LLM_FALLBACK_PROVIDER` = `claude|openrouter|ollama|lmstudio`
+- `RALPH_LLM_TIMEOUT_SECONDS` (default `120`)
+- `RALPH_LLM_MAX_RETRIES` (default `2`)
+
+### LM Studio
+
+- `RALPH_LMSTUDIO_BASE_URL`
+- `RALPH_LMSTUDIO_MODEL`
+
+### Ollama
+
+- `RALPH_OLLAMA_HOST`
+- `RALPH_OLLAMA_MODEL`
+
+### OpenRouter
+
+- `OPENROUTER_API_KEY` (or `RALPH_OPENROUTER_API_KEY`)
+- `RALPH_OPENROUTER_BASE_URL`
+- `RALPH_OPENROUTER_MODEL`
+
+## Smoke test
+
+Use the included script to validate connectivity:
+
+```bash
+RALPH_LLM_PROVIDER=lmstudio \
+RALPH_LMSTUDIO_BASE_URL=http://192.168.12.239:1234 \
+RALPH_LMSTUDIO_MODEL=qwen/qwen3-next-80b \
+./.ralph/scripts/llm-smoke-test.sh
+```
+
+The script will print the selected provider and a short response.
