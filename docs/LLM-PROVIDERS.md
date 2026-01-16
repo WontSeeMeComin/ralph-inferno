@@ -23,6 +23,7 @@ Add/update the `llm` section:
   "llm": {
     "provider": "auto",
     "fallback_provider": "claude",
+    "agent_mode": "llm",
     "timeout_seconds": 120,
     "max_retries": 2,
     "lmstudio": {
@@ -52,6 +53,7 @@ Add/update the `llm` section:
 Environment variables always override JSON config:
 
 - `RALPH_LLM_PROVIDER` = `auto|lmstudio|ollama|openrouter|claude`
+- `RALPH_AGENT_MODE` = `claude|llm`
 - `RALPH_LLM_FALLBACK_PROVIDER` = `claude|openrouter|ollama|lmstudio`
 - `RALPH_LLM_TIMEOUT_SECONDS` (default `120`)
 - `RALPH_LLM_MAX_RETRIES` (default `2`)
@@ -84,3 +86,14 @@ RALPH_LMSTUDIO_MODEL=qwen/qwen3-next-80b \
 ```
 
 The script will print the selected provider and a short response.
+
+## Running specs without Claude
+
+To run Ralph specs without the Claude Code CLI, enable agent mode:
+
+```bash
+export RALPH_AGENT_MODE=llm
+export RALPH_LLM_PROVIDER=lmstudio   # or ollama/openrouter/auto
+```
+
+In this mode, the inner loop uses `scripts/agent-run.mjs` (a lightweight tool loop) to read/edit files and run commands.

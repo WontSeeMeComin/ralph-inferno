@@ -197,6 +197,7 @@ Configuration is stored in `.ralph/config.json`:
   "llm": {
     "provider": "claude",
     "fallback_provider": "claude",
+    "agent_mode": "claude",
     "timeout_seconds": 120,
     "max_retries": 2,
     "lmstudio": {
@@ -232,6 +233,7 @@ Ralph now supports multiple inference providers **for text-generation steps** (e
 You can override config via environment variables:
 
 - `RALPH_LLM_PROVIDER` (e.g. `lmstudio`)
+- `RALPH_AGENT_MODE` = `claude` (default) or `llm` (run specs via local/OpenRouter agent loop)
 - `RALPH_LMSTUDIO_BASE_URL` (e.g. `http://192.168.12.239:1234`)
 - `RALPH_LMSTUDIO_MODEL` (e.g. `qwen/qwen3-next-80b`)
 - `OPENROUTER_API_KEY` (for OpenRouter)

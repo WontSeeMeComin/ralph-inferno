@@ -24,6 +24,18 @@ To verify your configured inference provider (LM Studio/Ollama/OpenRouter/Claude
 ./.ralph/scripts/llm-smoke-test.sh
 ```
 
+## Agent Mode (run specs without Claude)
+
+By default, Ralph executes specs using **Claude Code CLI**.
+
+To run spec execution via the built-in local/OpenRouter agent loop instead:
+
+```bash
+export RALPH_AGENT_MODE=llm
+```
+
+This enables `scripts/agent-run.mjs` for the inner loop.
+
 ### Flags
 
 | Flag | Short | Description |

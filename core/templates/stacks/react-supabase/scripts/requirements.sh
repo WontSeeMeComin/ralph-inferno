@@ -75,11 +75,15 @@ check_required() {
         fail "gh CLI - MISSING"
     fi
 
-    # Claude CLI
+    # Claude CLI (optional if using local/OpenRouter agent mode)
     if command -v claude &>/dev/null; then
         ok "Claude CLI installed"
     else
-        fail "Claude CLI - MISSING"
+        if [ "${RALPH_AGENT_MODE:-claude}" = "llm" ]; then
+            warn "Claude CLI - MISSING (ok: agent mode=llm)"
+        else
+            fail "Claude CLI - MISSING"
+        fi
     fi
 }
 
@@ -129,11 +133,21 @@ check_auth() {
         fail "gh: NOT AUTHENTICATED"
     fi
 
-    # Claude auth
-    if claude auth status &>/dev/null 2>&1; then
-        ok "Claude: Authenticated"
+    # Claude auth (optional if agent mode=llm)
+    if command -v claude &>/dev/null 2>&1; then
+        if claude auth status &>/dev/null 2>&1; then
+            ok "Claude: Authenticated"
+        else
+            if [ "${RALPH_AGENT_MODE:-claude}" = "llm" ]; then
+                warn "Claude: NOT AUTHENTICATED (ok: agent mode=llm)"
+            else
+                fail "Claude: NOT AUTHENTICATED"
+            fi
+        fi
     else
-        fail "Claude: NOT AUTHENTICATED"
+        if [ "${RALPH_AGENT_MODE:-claude}" = "llm" ]; then
+            warn "Claude: NOT INSTALLED (ok: agent mode=llm)"
+        fi
     fi
 }
 

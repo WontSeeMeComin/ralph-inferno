@@ -32,8 +32,10 @@
 
 ```bash
 run_spec() {
-    # 1. Claude runs spec
-    claude -p --dangerously-skip-permissions < "$spec"
+    # 1. Run spec via agent
+    # - Default: Claude Code CLI
+    # - Optional: local/OpenRouter agent loop (node scripts/agent-run.mjs)
+    claude -p --dangerously-skip-permissions < "$spec"  # or agent-run.mjs
 
     # 2. Verify build
     npm run build || retry
