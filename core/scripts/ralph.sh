@@ -26,6 +26,11 @@ fi
 
 # Check for --full flag (legacy)
 if [[ "${1:-}" == "--full" ]]; then
+	# Full mode still relies on Claude Code sessions; it's optional/legacy.
+	if [[ "${RALPH_AGENT_MODE:-}" == "llm" ]] || ! command -v claude >/dev/null 2>&1; then
+		echo "[ralph] --full mode requires Claude Code CLI. Use default mode (no --full) with RALPH_AGENT_MODE=llm." >&2
+		exit 1
+	fi
     shift
     exec "$SCRIPT_DIR/ralph-full.sh" "$@"
 fi

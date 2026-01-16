@@ -177,7 +177,7 @@ if [ "$CLOUD" != "local" ]; then
         echo -e "${YELLOW}Tips för MAX på VM:${NC}"
         echo "  - Timeout kan behöva ökas (supervisor checks)"
         echo "  - Begränsa parallella worktrees till 2-3"
-        echo "  - Logga in med: ssh VM && claude login"
+	    	echo "  - (Valfritt) Logga in med: ssh VM && claude login"
     else
         echo "CLAUDE_VM_MODE=api" >> "$CONFIG_FILE"
         echo ""
