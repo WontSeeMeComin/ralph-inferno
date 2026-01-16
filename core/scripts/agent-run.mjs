@@ -53,10 +53,55 @@ function normalizeOpenAIBaseUrl(base) {
   return b.endsWith('/v1') ? b : `${b}/v1`
 }
 
-async function llmChat({ provider, config, messages, timeoutSeconds }) {
+function useCaseSuffix(useCase) {
+  return String(useCase || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '_')
+}
+
+function useCaseEnv(baseKey, useCase) {
+  const s = useCaseSuffix(useCase)
+  return s ? `${baseKey}_${s}` : baseKey
+}
+
+function modelFor({ provider, config, useCase }) {
+  if (provider === 'ollama') {
+    return (
+      process.env[useCaseEnv('RALPH_OLLAMA_MODEL', useCase)] ||
+      config.llm?.ollama?.use_case_models?.[useCase] ||
+      process.env.RALPH_OLLAMA_MODEL ||
+      config.llm?.ollama?.model ||
+      'qwen3'
+    )
+  }
+
+  if (provider === 'lmstudio') {
+    return (
+      process.env[useCaseEnv('RALPH_LMSTUDIO_MODEL', useCase)] ||
+      config.llm?.lmstudio?.use_case_models?.[useCase] ||
+      process.env.RALPH_LMSTUDIO_MODEL ||
+      config.llm?.lmstudio?.model ||
+      'qwen/qwen3-next-80b'
+    )
+  }
+
+  if (provider === 'openrouter') {
+    return (
+      process.env[useCaseEnv('RALPH_OPENROUTER_MODEL', useCase)] ||
+      config.llm?.openrouter?.use_case_models?.[useCase] ||
+      process.env.RALPH_OPENROUTER_MODEL ||
+      config.llm?.openrouter?.model ||
+      'openai/gpt-4o-mini'
+    )
+  }
+
+  return null
+}
+
+async function llmChat({ provider, config, messages, timeoutSeconds, useCase }) {
   if (provider === 'ollama') {
     const host = envOr(config, 'RALPH_OLLAMA_HOST', (c) => c.llm?.ollama?.host, 'http://localhost:11434')
-    const model = envOr(config, 'RALPH_OLLAMA_MODEL', (c) => c.llm?.ollama?.model, 'qwen3')
+    const model = modelFor({ provider, config, useCase })
     const resp = await fetch(`${host.replace(/\/$/, '')}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -74,9 +119,7 @@ async function llmChat({ provider, config, messages, timeoutSeconds }) {
       ? envOr(config, 'RALPH_LMSTUDIO_BASE_URL', (c) => c.llm?.lmstudio?.base_url, 'http://localhost:1234')
       : envOr(config, 'RALPH_OPENROUTER_BASE_URL', (c) => c.llm?.openrouter?.base_url, 'https://openrouter.ai/api/v1')
 
-    const model = provider === 'lmstudio'
-      ? envOr(config, 'RALPH_LMSTUDIO_MODEL', (c) => c.llm?.lmstudio?.model, 'qwen/qwen3-next-80b')
-      : envOr(config, 'RALPH_OPENROUTER_MODEL', (c) => c.llm?.openrouter?.model, 'openai/gpt-4o-mini')
+    const model = modelFor({ provider, config, useCase })
 
     const url = `${normalizeOpenAIBaseUrl(base)}/chat/completions`
 
@@ -263,7 +306,7 @@ Rules:
   for (let step = 1; step <= maxSteps; step++) {
     let modelText
     try {
-      modelText = await llmChat({ provider, config, messages, timeoutSeconds })
+      modelText = await llmChat({ provider, config, messages, timeoutSeconds, useCase })
     } catch (e) {
       console.log(`[agent] model error: ${String(e).slice(0, 500)}`)
       process.exit(2)

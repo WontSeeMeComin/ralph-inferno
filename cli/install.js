@@ -284,15 +284,20 @@ By continuing, you accept full responsibility for usage.
       lmstudio: {
         base_url: 'http://localhost:1234',
         model: 'qwen/qwen3-next-80b',
-        vision_model: 'zai-org/glm-4.6v-flash'
+        vision_model: 'zai-org/glm-4.6v-flash',
+        // Optional per-use-case models, e.g. { plan: 'qwen/qwen3-next-80b-instruct' }
+        use_case_models: {}
       },
       ollama: {
         host: 'http://localhost:11434',
-        model: 'qwen3'
+        model: 'qwen3',
+        use_case_models: {}
       },
       openrouter: {
         base_url: 'https://openrouter.ai/api/v1',
-        model: 'openai/gpt-4o-mini'
+        model: 'openai/gpt-4o-mini',
+        // Optional per-use-case models, e.g. { plan: 'anthropic/claude-3.5-sonnet' }
+        use_case_models: {}
       },
 
       // Optional per-use-case provider routing.

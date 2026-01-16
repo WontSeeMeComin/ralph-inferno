@@ -297,7 +297,7 @@ llm_generate_vision() {
                 local base key
                 base=$(_llm_normalize_openai_base_url "$(llm_openrouter_base_url)")
                 key="$(llm_openrouter_api_key)"
-                raw=$(_llm_openai_chat_with_image "$base" "$key" "$(llm_openrouter_model)" "$prompt" "$image_path" 2>&1) || exit_code=$?
+		        raw=$(_llm_openai_chat_with_image "$base" "$key" "$(llm_openrouter_model_for_use_case "$use_case")" "$prompt" "$image_path" 2>&1) || exit_code=$?
                 if [ $exit_code -eq 0 ]; then
                     echo "$raw" | jq -r '.choices[0].message.content // empty'
                     return 0
@@ -307,7 +307,7 @@ llm_generate_vision() {
             ollama)
                 local host
                 host="$(llm_ollama_host)"
-                raw=$(_llm_ollama_chat_with_image "$host" "$(llm_ollama_model)" "$prompt" "$image_path" 2>&1) || exit_code=$?
+		        raw=$(_llm_ollama_chat_with_image "$host" "$(llm_ollama_model_for_use_case "$use_case")" "$prompt" "$image_path" 2>&1) || exit_code=$?
                 if [ $exit_code -eq 0 ]; then
                     echo "$raw" | jq -r '.message.content // empty'
                     return 0
@@ -347,7 +347,7 @@ llm_generate() {
             lmstudio)
                 local base
                 base=$(_llm_normalize_openai_base_url "$(llm_lmstudio_base_url)")
-                raw=$(_llm_openai_chat "$base" "" "$(llm_lmstudio_model)" "$prompt" 2>&1) || exit_code=$?
+		        raw=$(_llm_openai_chat "$base" "" "$(llm_lmstudio_model_for_use_case "$use_case")" "$prompt" 2>&1) || exit_code=$?
                 if [ $exit_code -eq 0 ]; then
                     echo "$raw" | jq -r '.choices[0].message.content // empty'
                     return 0
@@ -358,7 +358,7 @@ llm_generate() {
                 local base key
                 base=$(_llm_normalize_openai_base_url "$(llm_openrouter_base_url)")
                 key="$(llm_openrouter_api_key)"
-                raw=$(_llm_openai_chat "$base" "$key" "$(llm_openrouter_model)" "$prompt" 2>&1) || exit_code=$?
+		        raw=$(_llm_openai_chat "$base" "$key" "$(llm_openrouter_model_for_use_case "$use_case")" "$prompt" 2>&1) || exit_code=$?
                 if [ $exit_code -eq 0 ]; then
                     echo "$raw" | jq -r '.choices[0].message.content // empty'
                     return 0
@@ -368,7 +368,7 @@ llm_generate() {
             ollama)
                 local host
                 host="$(llm_ollama_host)"
-                raw=$(_llm_ollama_chat "$host" "$(llm_ollama_model)" "$prompt" 2>&1) || exit_code=$?
+		        raw=$(_llm_ollama_chat "$host" "$(llm_ollama_model_for_use_case "$use_case")" "$prompt" 2>&1) || exit_code=$?
                 if [ $exit_code -eq 0 ]; then
                     echo "$raw" | jq -r '.message.content // empty'
                     return 0

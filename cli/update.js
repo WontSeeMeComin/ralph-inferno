@@ -42,6 +42,14 @@ export async function update() {
   // Backfill newer optional fields without overwriting user config
   if (!config.llm.lmstudio) config.llm.lmstudio = { base_url: 'http://localhost:1234', model: 'qwen/qwen3-next-80b' };
   if (!config.llm.lmstudio.vision_model) config.llm.lmstudio.vision_model = 'zai-org/glm-4.6v-flash';
+  if (!config.llm.lmstudio.use_case_models) config.llm.lmstudio.use_case_models = {};
+
+  if (!config.llm.ollama) config.llm.ollama = { host: 'http://localhost:11434', model: 'qwen3' };
+  if (!config.llm.ollama.use_case_models) config.llm.ollama.use_case_models = {};
+
+  if (!config.llm.openrouter) config.llm.openrouter = { base_url: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' };
+  if (!config.llm.openrouter.use_case_models) config.llm.openrouter.use_case_models = {};
+
   if (!config.llm.use_case_providers) config.llm.use_case_providers = {};
 
   console.log(chalk.dim('Current config:'));

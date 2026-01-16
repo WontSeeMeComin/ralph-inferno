@@ -104,6 +104,20 @@ llm_lmstudio_model() {
     _cfg_env_or_json "RALPH_LMSTUDIO_MODEL" ".llm.lmstudio.model" "qwen/qwen3-next-80b"
 }
 
+llm_lmstudio_model_for_use_case() {
+    local use_case="${1:-}"
+    if [ -z "$use_case" ]; then
+        llm_lmstudio_model
+        return 0
+    fi
+
+    local uc
+    uc=$(echo "$use_case" | tr '[:lower:]' '[:upper:]')
+    local env_name="RALPH_LMSTUDIO_MODEL_${uc}"
+    local jq_expr=".llm.lmstudio.use_case_models.${use_case}"
+    _cfg_env_or_json "$env_name" "$jq_expr" "$(llm_lmstudio_model)"
+}
+
 llm_lmstudio_vision_model() {
     _cfg_env_or_json "RALPH_LMSTUDIO_VISION_MODEL" ".llm.lmstudio.vision_model" "zai-org/glm-4.6v-flash"
 }
@@ -115,6 +129,20 @@ llm_openrouter_base_url() {
 
 llm_openrouter_model() {
     _cfg_env_or_json "RALPH_OPENROUTER_MODEL" ".llm.openrouter.model" "openai/gpt-4o-mini"
+}
+
+llm_openrouter_model_for_use_case() {
+    local use_case="${1:-}"
+    if [ -z "$use_case" ]; then
+        llm_openrouter_model
+        return 0
+    fi
+
+    local uc
+    uc=$(echo "$use_case" | tr '[:lower:]' '[:upper:]')
+    local env_name="RALPH_OPENROUTER_MODEL_${uc}"
+    local jq_expr=".llm.openrouter.use_case_models.${use_case}"
+    _cfg_env_or_json "$env_name" "$jq_expr" "$(llm_openrouter_model)"
 }
 
 llm_openrouter_api_key() {
@@ -137,6 +165,20 @@ llm_ollama_host() {
 
 llm_ollama_model() {
     _cfg_env_or_json "RALPH_OLLAMA_MODEL" ".llm.ollama.model" "qwen3"
+}
+
+llm_ollama_model_for_use_case() {
+    local use_case="${1:-}"
+    if [ -z "$use_case" ]; then
+        llm_ollama_model
+        return 0
+    fi
+
+    local uc
+    uc=$(echo "$use_case" | tr '[:lower:]' '[:upper:]')
+    local env_name="RALPH_OLLAMA_MODEL_${uc}"
+    local jq_expr=".llm.ollama.use_case_models.${use_case}"
+    _cfg_env_or_json "$env_name" "$jq_expr" "$(llm_ollama_model)"
 }
 
 # Guardrails: keep existing Claude workflows safe by default.

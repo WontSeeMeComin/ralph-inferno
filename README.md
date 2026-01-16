@@ -24,16 +24,19 @@ AI-driven autonomous development workflow.
 
 **Local machine:**
 - Node.js (for npx)
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude`)
+- (Optional) [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) (`claude`) — required only if you want to run the `/ralph:*` slash commands inside Claude Code
 - GitHub CLI (`gh`) - optional, for auto-detecting username
 
 **VM (where Ralph runs):**
 - A running VM/server (Hetzner, GCP, DigitalOcean, AWS, or your own)
 - SSH access to the VM
 - Git installed
-- Claude Code CLI with either:
-  - Anthropic API key (`ANTHROPIC_API_KEY`), or
-  - Claude subscription (requires `claude login` on the VM)
+
+If you run the VM loop in `agent_mode=claude` (default), the VM also needs the Claude Code CLI with either:
+- Anthropic API key (`ANTHROPIC_API_KEY`), or
+- Claude subscription (requires `claude login` on the VM)
+
+If you run the VM loop in `agent_mode=llm`, Claude is not required on the VM, but your chosen LLM provider(s) must be reachable from the VM.
 
 **Optional (multi-provider inference):**
 - A reachable local inference server (for text-only steps like auto-CR generation)
@@ -58,6 +61,45 @@ This will:
 3. Ask how Claude authenticates (subscription or API key)
 4. Install Ralph core files to `.ralph/`
 5. Create a `ralph` wrapper script
+
+### Manual configuration (recommended if you want local inference)
+
+After install, edit `.ralph/config.json`:
+
+- Set `llm.agent_mode` to:
+  - `claude` (default): VM uses Claude Code CLI for spec execution
+  - `llm`: VM uses the local/OpenRouter agent loop for spec execution
+- Optionally route providers by use-case:
+  - `discover` / `plan` (PRD/spec generation)
+  - `execute` (spec execution)
+  - `vision` (design review)
+
+Note: `lmstudio`/`ollama` only work if the VM can reach those endpoints. If you're running Ralph on a remote VM, OpenRouter is usually the simplest option for `execute`/`vision`.
+
+Example `llm` section:
+
+```json
+{
+  "llm": {
+    "agent_mode": "llm",
+    "provider": "auto",
+    "use_case_providers": {
+      "discover": "openrouter",
+      "plan": "openrouter",
+      "execute": "openrouter",
+      "vision": "openrouter"
+    },
+    "openrouter": {
+      "model": "openai/gpt-4o-mini",
+      "use_case_models": {
+        "plan": "anthropic/claude-3.5-sonnet"
+      }
+    }
+  }
+}
+```
+
+See: [docs/LLM-PROVIDERS.md](docs/LLM-PROVIDERS.md)
 
 ## Update
 
@@ -148,6 +190,11 @@ npx ralph-inferno install
 /ralph:discover    # Autonomous discovery with web research
 /ralph:plan        # Generate specs from PRD
 /ralph:deploy      # Choose mode, send to VM
+
+# You can keep using these slash commands in Claude Code.
+# The multi-provider/local inference settings mainly affect:
+# - VM execution (spec runner + design review)
+# - CLI-only discovery/planning (below)
 
 # 2b. Or: No Claude UI (CLI-only)
 ralph-inferno discover my-app --idea "What are we building?"
@@ -245,6 +292,7 @@ You can override config via environment variables:
 
 - `RALPH_LLM_PROVIDER` (e.g. `lmstudio`)
 - `RALPH_LLM_PROVIDER_DISCOVER` / `RALPH_LLM_PROVIDER_PLAN` / `RALPH_LLM_PROVIDER_EXECUTE` / `RALPH_LLM_PROVIDER_VISION`
+- `RALPH_OPENROUTER_MODEL_PLAN` (and similar `*_MODEL_<USE_CASE>` overrides)
 - `RALPH_AGENT_MODE` = `claude` (default) or `llm` (run specs via local/OpenRouter agent loop)
 - `RALPH_LMSTUDIO_BASE_URL` (e.g. `http://192.168.12.239:1234`)
 - `RALPH_LMSTUDIO_MODEL` (e.g. `qwen/qwen3-next-80b`)

@@ -39,15 +39,23 @@ Add/update the `llm` section:
     "lmstudio": {
       "base_url": "http://192.168.12.239:1234",
       "model": "qwen/qwen3-next-80b",
-      "vision_model": "zai-org/glm-4.6v-flash"
+	      "vision_model": "zai-org/glm-4.6v-flash",
+	      "use_case_models": {
+	        "execute": "qwen/qwen3-next-80b"
+	      }
     },
     "ollama": {
       "host": "http://localhost:11434",
-      "model": "qwen3"
+	      "model": "qwen3",
+	      "use_case_models": {}
     },
     "openrouter": {
       "base_url": "https://openrouter.ai/api/v1",
-      "model": "openai/gpt-4o-mini"
+	      "model": "openai/gpt-4o-mini",
+	      "use_case_models": {
+	        "plan": "anthropic/claude-3.5-sonnet",
+	        "discover": "anthropic/claude-3.5-sonnet"
+	      }
     }
   }
 }
@@ -74,18 +82,21 @@ Environment variables always override JSON config:
 
 - `RALPH_LMSTUDIO_BASE_URL`
 - `RALPH_LMSTUDIO_MODEL`
+- `RALPH_LMSTUDIO_MODEL_DISCOVER` / `RALPH_LMSTUDIO_MODEL_PLAN` / `RALPH_LMSTUDIO_MODEL_EXECUTE`
 - `RALPH_LMSTUDIO_VISION_MODEL` (default: `zai-org/glm-4.6v-flash`)
 
 ### Ollama
 
 - `RALPH_OLLAMA_HOST`
 - `RALPH_OLLAMA_MODEL`
+- `RALPH_OLLAMA_MODEL_DISCOVER` / `RALPH_OLLAMA_MODEL_PLAN` / `RALPH_OLLAMA_MODEL_EXECUTE`
 
 ### OpenRouter
 
 - `OPENROUTER_API_KEY` (or `RALPH_OPENROUTER_API_KEY`)
 - `RALPH_OPENROUTER_BASE_URL`
 - `RALPH_OPENROUTER_MODEL`
+- `RALPH_OPENROUTER_MODEL_DISCOVER` / `RALPH_OPENROUTER_MODEL_PLAN` / `RALPH_OPENROUTER_MODEL_EXECUTE` / `RALPH_OPENROUTER_MODEL_VISION`
 
 ## Smoke test
 
@@ -115,6 +126,16 @@ In this mode, the inner loop uses `scripts/agent-run.mjs` (a lightweight tool lo
 
 ```bash
 ralph-inferno discover "my-app" --idea "A small app that ..."
+ralph-inferno plan
+```
+
+Plan-specific model example:
+
+```bash
+export OPENROUTER_API_KEY=...
+export RALPH_LLM_PROVIDER_PLAN=openrouter
+export RALPH_OPENROUTER_MODEL_PLAN=anthropic/claude-3.5-sonnet
+
 ralph-inferno plan
 ```
 
