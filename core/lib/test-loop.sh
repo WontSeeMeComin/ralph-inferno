@@ -57,7 +57,8 @@ generate_cr() {
 
     log "${YELLOW}Generating CR: $cr_file${NC}"
 
-    # Let Claude analyze and create CR
+    # Use LLM provider to generate CR markdown, then write it ourselves.
+    # (This allows local inference providers that don't have file-system tools.)
     local prompt="E2E tests failed after running spec: $spec_name
 
 Test output:
@@ -65,22 +66,24 @@ $test_output
 
 Create a Change Request spec to fix this.
 
-Write to: $cr_file
+IMPORTANT:
+- Output ONLY the Markdown content for the CR file (no commentary)
+- Keep it concise but actionable
 
 Use this format:
 # CR: Fix E2E test failure from $spec_name
 
-**Problem:** [What failed in the test]
-**Root cause:** [Why it likely failed]
+**Problem:** <what failed>
+**Root cause:** <why it likely failed>
 
 ## Fix
-- [Specific code changes needed]
+- <specific code changes needed>
 
-## Klart när
+## Done when
 - [ ] E2E tests pass
 - [ ] npm run build succeeds"
 
-    echo "$prompt" | timeout 300 claude --dangerously-skip-permissions -p > /dev/null 2>&1
+    llm_generate_to_file "$prompt" "$cr_file" "generate_cr" >/dev/null 2>&1 || true
 
     if [ -f "$cr_file" ]; then
         log "${GREEN}CR created: $cr_file${NC}"
@@ -142,6 +145,12 @@ run_design_review() {
 
     # Check if PRD has design system section
     if ! grep -q "## Design System" docs/PRD.md 2>/dev/null; then
+        return 0
+    fi
+
+    # Design review currently requires Claude Vision.
+    if ! command -v claude >/dev/null 2>&1; then
+        log "${YELLOW}Skipping design review (claude CLI not available)${NC}"
         return 0
     fi
 
@@ -214,22 +223,24 @@ $review_output
 
 Create a Change Request spec to fix the design issues.
 
-Write to: $cr_file
+IMPORTANT:
+- Output ONLY the Markdown content for the CR file (no commentary)
 
 Format:
 # CR: Fix design issues from $spec_name
 
 **Issues found:**
-[List from review]
+- <issue 1>
+- <issue 2>
 
 ## Fix
-- [Specific CSS/component changes]
+- <specific CSS/component changes>
 
-## Klart när
+## Done when
 - [ ] Design review passes
 - [ ] npm run build succeeds"
 
-    echo "$prompt" | timeout 300 claude --dangerously-skip-permissions -p > /dev/null 2>&1
+    llm_generate_to_file "$prompt" "$cr_file" "generate_design_cr" >/dev/null 2>&1 || true
 
     if [ -f "$cr_file" ]; then
         log "${GREEN}Design CR created: $cr_file${NC}"

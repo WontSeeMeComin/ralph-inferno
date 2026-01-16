@@ -25,6 +25,19 @@ export async function update() {
   // Read existing config
   const config = await fs.readJson(CONFIG_FILE);
 
+  // Ensure new LLM config defaults exist (do not override user settings)
+  if (!config.llm) {
+    config.llm = {
+      provider: 'claude',
+      fallback_provider: 'claude',
+      timeout_seconds: 120,
+      max_retries: 2,
+      lmstudio: { base_url: 'http://localhost:1234', model: 'qwen/qwen3-next-80b' },
+      ollama: { host: 'http://localhost:11434', model: 'qwen3' },
+      openrouter: { base_url: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' }
+    };
+  }
+
   console.log(chalk.dim('Current config:'));
   console.log(chalk.dim(`  Provider: ${config.provider || 'none'}`));
   console.log(chalk.dim(`  Language: ${config.language || 'en'}`));

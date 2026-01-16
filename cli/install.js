@@ -272,6 +272,26 @@ By continuing, you accept full responsibility for usage.
     },
     claude: {
       auth_method: authAnswers.claudeAuth
+    },
+    // LLM/inference configuration (can be overridden via env vars)
+    // Default keeps existing Claude-based workflows intact.
+    llm: {
+      provider: 'claude', // auto | lmstudio | ollama | openrouter | claude
+      fallback_provider: 'claude',
+      timeout_seconds: 120,
+      max_retries: 2,
+      lmstudio: {
+        base_url: 'http://localhost:1234',
+        model: 'qwen/qwen3-next-80b'
+      },
+      ollama: {
+        host: 'http://localhost:11434',
+        model: 'qwen3'
+      },
+      openrouter: {
+        base_url: 'https://openrouter.ai/api/v1',
+        model: 'openai/gpt-4o-mini'
+      }
     }
   };
 
