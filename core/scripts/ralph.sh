@@ -148,6 +148,7 @@ run_spec() {
     local spec="$1"
     local attempt=1
     local spec_name=$(basename "$spec" .md)
+    local agent_extra_context=""
 
     log "${GREEN}=== $spec_name ===${NC}"
     notify_spec_start "$spec"
@@ -175,7 +176,7 @@ Before DONE: run 'npm run build' and verify it passes."
 
 	        if should_use_llm_agent; then
 	            # LLM agent loop (LM Studio / Ollama / OpenRouter). No Claude dependency.
-	            output=$(timeout $TIMEOUT node "$SCRIPT_DIR/agent-run.mjs" "$spec" 2>&1) || exit_code=$?
+	            output=$(RALPH_AGENT_EXTRA_CONTEXT="$agent_extra_context" timeout $TIMEOUT node "$SCRIPT_DIR/agent-run.mjs" "$spec" 2>&1) || exit_code=$?
 	        else
 	            output=$(echo "$prompt" | timeout $TIMEOUT claude --dangerously-skip-permissions -p 2>&1) || exit_code=$?
 	        fi
@@ -191,8 +192,11 @@ Before DONE: run 'npm run build' and verify it passes."
             continue
         fi
 
-        if echo "$output" | grep -q "$COMPLETION_MARKER"; then
-            if verify_build; then
+	        if echo "$output" | grep -q "$COMPLETION_MARKER"; then
+	            local verify_out
+	            verify_out=$(verify_build 2>&1)
+	            local verify_code=$?
+	            if [ $verify_code -eq 0 ]; then
                 # Run E2E tests if available
                 if ! run_e2e_tests; then
                     local cr_spec="specs/CR-fix-${spec_name}.md"
@@ -224,6 +228,9 @@ Before DONE: run 'npm run build' and verify it passes."
                 notify_spec_done "$spec"
                 return 0
             fi
+
+	            # Build failed. Feed context back to agent on next attempt.
+	            agent_extra_context="Build failed. Relevant errors:\n$verify_out"
         fi
 
         ((attempt++))

@@ -220,7 +220,10 @@ Rules:
       content:
         `SPEC FILE: ${specPath}\n\n` +
         `${spec}\n\n` +
-        `Remember: reply with a single JSON tool action.`,
+        (process.env.RALPH_AGENT_EXTRA_CONTEXT
+          ? `\n\n---\nADDITIONAL CONTEXT (from previous failures):\n${process.env.RALPH_AGENT_EXTRA_CONTEXT}\n`
+          : '') +
+        `\nRemember: reply with a single JSON tool action.`,
     },
   ]
 

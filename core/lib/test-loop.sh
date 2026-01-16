@@ -148,12 +148,6 @@ run_design_review() {
         return 0
     fi
 
-    # Design review currently requires Claude Vision.
-    if ! command -v claude >/dev/null 2>&1; then
-        log "${YELLOW}Skipping design review (claude CLI not available)${NC}"
-        return 0
-    fi
-
     log "${CYAN}Running design review...${NC}"
 
     # Extract design system from PRD
@@ -176,14 +170,21 @@ If it looks good, say 'DESIGN_OK'.
 
 Be concise - max 10 lines."
 
-    # Call Claude with vision (using base64 encoded image)
+    # Pick first screenshot
     local screenshot=$(ls -1 "$screenshot_dir"/*.png 2>/dev/null | head -1)
     if [ -z "$screenshot" ]; then
         return 0
     fi
 
     local result
-    result=$(echo "$prompt" | claude --dangerously-skip-permissions -p --image "$screenshot" 2>&1) || true
+    if result=$(llm_generate_vision "$prompt" "$screenshot" "design_review" 2>/dev/null); then
+        :
+    else
+        # Fallback: text-only review (no image support)
+        result=$(llm_generate "$prompt
+
+NOTE: Vision not available. Provide a best-effort design/accessibility review based on the design system alone. If no issues, say 'DESIGN_OK'." "design_review_text" 2>/dev/null || true)
+    fi
 
     if echo "$result" | grep -q "DESIGN_OK"; then
         log "${GREEN}✅ Design review passed${NC}"
