@@ -33,11 +33,16 @@ export async function update() {
       agent_mode: 'claude',
       timeout_seconds: 120,
       max_retries: 2,
-      lmstudio: { base_url: 'http://localhost:1234', model: 'qwen/qwen3-next-80b' },
+      lmstudio: { base_url: 'http://localhost:1234', model: 'qwen/qwen3-next-80b', vision_model: 'zai-org/glm-4.6v-flash' },
       ollama: { host: 'http://localhost:11434', model: 'qwen3' },
       openrouter: { base_url: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' }
     };
   }
+
+  // Backfill newer optional fields without overwriting user config
+  if (!config.llm.lmstudio) config.llm.lmstudio = { base_url: 'http://localhost:1234', model: 'qwen/qwen3-next-80b' };
+  if (!config.llm.lmstudio.vision_model) config.llm.lmstudio.vision_model = 'zai-org/glm-4.6v-flash';
+  if (!config.llm.use_case_providers) config.llm.use_case_providers = {};
 
   console.log(chalk.dim('Current config:'));
   console.log(chalk.dim(`  Provider: ${config.provider || 'none'}`));

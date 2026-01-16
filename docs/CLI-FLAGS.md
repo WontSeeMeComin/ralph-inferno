@@ -80,7 +80,7 @@ This enables `scripts/agent-run.mjs` for the inner loop.
 ```
 
 - Everything in Standard mode, plus:
-- Design review with Claude Vision
+- Design review with a vision-capable provider (LM Studio/Ollama/OpenRouter; Claude Vision optional)
 - Auto-CR for design issues
 - Parallel worktrees for faster execution
 - Full autonomous power
@@ -136,3 +136,12 @@ During `install`, you'll be asked:
 | `/ralph:change-request` | Document bugs → CR specs |
 | `/ralph:status` | Check Ralph's progress on VM |
 | `/ralph:abort` | Stop Ralph on VM |
+
+## CLI Commands (no Claude UI required)
+
+These run locally using your configured providers:
+
+| Command | Description |
+|---------|-------------|
+| `ralph-inferno discover` | Generate `docs/prd.md` + `CLAUDE.md` using LLM inference |
+| `ralph-inferno plan` | Generate `docs/IMPLEMENTATION_PLAN.md` + `specs/*.md` from PRD |

@@ -283,7 +283,8 @@ By continuing, you accept full responsibility for usage.
       max_retries: 2,
       lmstudio: {
         base_url: 'http://localhost:1234',
-        model: 'qwen/qwen3-next-80b'
+        model: 'qwen/qwen3-next-80b',
+        vision_model: 'zai-org/glm-4.6v-flash'
       },
       ollama: {
         host: 'http://localhost:11434',
@@ -292,7 +293,12 @@ By continuing, you accept full responsibility for usage.
       openrouter: {
         base_url: 'https://openrouter.ai/api/v1',
         model: 'openai/gpt-4o-mini'
-      }
+      },
+
+      // Optional per-use-case provider routing.
+      // Examples:
+      //   use_case_providers: { plan: 'openrouter', discover: 'openrouter', execute: 'lmstudio', vision: 'lmstudio' }
+      use_case_providers: {}
     }
   };
 

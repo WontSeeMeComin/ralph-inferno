@@ -71,12 +71,9 @@ llm_healthcheck_claude() {
     command -v claude >/dev/null 2>&1
 }
 
-llm_select_provider() {
-    local requested
-    requested="$(llm_provider)"
-
-    local fallback
-    fallback="$(llm_fallback_provider)"
+_llm_select_provider_impl() {
+    local requested="$1"
+    local fallback="$2"
 
     _select_auto() {
         # Prefer local first
@@ -128,12 +125,26 @@ llm_select_provider() {
             fi
             ;;
         claude)
-            echo "claude"
+            # Don't hard-fail if Claude isn't installed; fall back.
+            if llm_healthcheck_claude; then
+                echo "claude"
+            else
+                _select_auto
+            fi
             ;;
         auto|*)
             _select_auto
             ;;
     esac
+}
+
+llm_select_provider() {
+    _llm_select_provider_impl "$(llm_provider)" "$(llm_fallback_provider)"
+}
+
+llm_select_provider_for_use_case() {
+    local use_case="${1:-}"
+    _llm_select_provider_impl "$(llm_provider_for_use_case "$use_case")" "$(llm_fallback_provider_for_use_case "$use_case")"
 }
 
 _llm_openai_chat() {
@@ -257,11 +268,12 @@ llm_generate_vision() {
     local prompt="$1"
     local image_path="$2"
     local purpose="${3:-vision}"
+    local use_case="${4:-vision}"
 
     [ -f "$image_path" ] || return 1
 
     local provider
-    provider="$(llm_select_provider)"
+    provider="$(llm_select_provider_for_use_case "$use_case")"
 
     local retries
     retries="$(llm_max_retries)"
@@ -274,7 +286,7 @@ llm_generate_vision() {
             lmstudio)
                 local base
                 base=$(_llm_normalize_openai_base_url "$(llm_lmstudio_base_url)")
-                raw=$(_llm_openai_chat_with_image "$base" "" "$(llm_lmstudio_model)" "$prompt" "$image_path" 2>&1) || exit_code=$?
+                raw=$(_llm_openai_chat_with_image "$base" "" "$(llm_lmstudio_vision_model)" "$prompt" "$image_path" 2>&1) || exit_code=$?
                 if [ $exit_code -eq 0 ]; then
                     echo "$raw" | jq -r '.choices[0].message.content // empty'
                     return 0
@@ -319,9 +331,10 @@ llm_generate() {
     # Generates plain text (returns on stdout)
     local prompt="$1"
     local purpose="${2:-generic}" # for logs
+    local use_case="${3:-execute}"
 
     local provider
-    provider="$(llm_select_provider)"
+    provider="$(llm_select_provider_for_use_case "$use_case")"
 
     local retries
     retries="$(llm_max_retries)"
@@ -397,9 +410,10 @@ llm_generate_to_file() {
     local prompt="$1"
     local file_path="$2"
     local purpose="${3:-write_file}"
+    local use_case="${4:-execute}"
 
     local content
-    content=$(llm_generate "$prompt" "$purpose") || return 1
+    content=$(llm_generate "$prompt" "$purpose" "$use_case") || return 1
 
     mkdir -p "$(dirname "$file_path")"
     printf "%s\n" "$content" > "$file_path"

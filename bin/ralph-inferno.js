@@ -28,4 +28,26 @@ program
     await update();
   });
 
+program
+  .command('discover')
+  .description('Generate docs/prd.md + CLAUDE.md using configured LLM provider (no Claude UI required)')
+  .argument('[projectName]', 'Optional project name')
+  .option('--idea <text>', 'Short description / what are we building?')
+  .option('--input <file>', 'Optional meeting notes / transcript file')
+  .option('--provider <provider>', 'Override provider for discovery (lmstudio|ollama|openrouter|auto)')
+  .action(async (projectName, opts) => {
+    const { discover } = await import('../cli/discover.js');
+    await discover(projectName, opts);
+  });
+
+program
+  .command('plan')
+  .description('Generate docs/IMPLEMENTATION_PLAN.md and specs/*.md from docs/prd.md using configured LLM provider')
+  .option('--prd <file>', 'Path to PRD (default: docs/prd.md)')
+  .option('--provider <provider>', 'Override provider for planning (lmstudio|ollama|openrouter|auto)')
+  .action(async (opts) => {
+    const { plan } = await import('../cli/plan.js');
+    await plan(opts);
+  });
+
 program.parse();

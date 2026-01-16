@@ -181,7 +181,7 @@ Before DONE: run 'npm run build' and verify it passes."
 
 	        if should_use_llm_agent; then
 	            # LLM agent loop (LM Studio / Ollama / OpenRouter). No Claude dependency.
-	            output=$(RALPH_AGENT_EXTRA_CONTEXT="$agent_extra_context" timeout $TIMEOUT node "$SCRIPT_DIR/agent-run.mjs" "$spec" 2>&1) || exit_code=$?
+	            output=$(RALPH_AGENT_EXTRA_CONTEXT="$agent_extra_context" timeout $TIMEOUT node "$SCRIPT_DIR/agent-run.mjs" "$spec" --use-case execute 2>&1) || exit_code=$?
 	        else
 	            output=$(echo "$prompt" | timeout $TIMEOUT claude --dangerously-skip-permissions -p 2>&1) || exit_code=$?
 	        fi

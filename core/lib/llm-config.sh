@@ -46,8 +46,38 @@ llm_provider() {
     _cfg_env_or_json "RALPH_LLM_PROVIDER" ".llm.provider" "claude"
 }
 
+llm_provider_for_use_case() {
+    # Use-case specific provider override.
+    # Example env: RALPH_LLM_PROVIDER_PLAN=openrouter
+    local use_case="${1:-}"
+    if [ -z "$use_case" ]; then
+        llm_provider
+        return 0
+    fi
+
+    local uc
+    uc=$(echo "$use_case" | tr '[:lower:]' '[:upper:]')
+    local env_name="RALPH_LLM_PROVIDER_${uc}"
+    local jq_expr=".llm.use_case_providers.${use_case}"
+    _cfg_env_or_json "$env_name" "$jq_expr" "$(llm_provider)"
+}
+
 llm_fallback_provider() {
     _cfg_env_or_json "RALPH_LLM_FALLBACK_PROVIDER" ".llm.fallback_provider" "claude"
+}
+
+llm_fallback_provider_for_use_case() {
+    local use_case="${1:-}"
+    if [ -z "$use_case" ]; then
+        llm_fallback_provider
+        return 0
+    fi
+
+    local uc
+    uc=$(echo "$use_case" | tr '[:lower:]' '[:upper:]')
+    local env_name="RALPH_LLM_FALLBACK_PROVIDER_${uc}"
+    local jq_expr=".llm.use_case_fallback_providers.${use_case}"
+    _cfg_env_or_json "$env_name" "$jq_expr" "$(llm_fallback_provider)"
 }
 
 # Timeouts / retries
@@ -72,6 +102,10 @@ llm_lmstudio_base_url() {
 
 llm_lmstudio_model() {
     _cfg_env_or_json "RALPH_LMSTUDIO_MODEL" ".llm.lmstudio.model" "qwen/qwen3-next-80b"
+}
+
+llm_lmstudio_vision_model() {
+    _cfg_env_or_json "RALPH_LMSTUDIO_VISION_MODEL" ".llm.lmstudio.vision_model" "zai-org/glm-4.6v-flash"
 }
 
 # OpenRouter (OpenAI-compatible)

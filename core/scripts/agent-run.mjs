@@ -158,15 +158,48 @@ function stripToJsonObject(text) {
 }
 
 async function main() {
-  const specPath = process.argv[2]
-  if (!specPath) die('Usage: agent-run.mjs <spec-file>')
+  const argv = process.argv.slice(2)
+  let specPath = null
+  let useCase = 'execute'
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--use-case' || a === '--usecase') {
+      useCase = argv[i + 1]
+      i++
+      continue
+    }
+    if (!specPath) {
+      specPath = a
+      continue
+    }
+  }
+
+  if (!specPath) die('Usage: agent-run.mjs <spec-file> [--use-case execute|plan|discover|vision]')
 
   const spec = await fs.readFile(specPath, 'utf8').catch(() => null)
   if (spec == null) die(`Spec not found: ${specPath}`)
 
   const { json: config, path: cfgPath } = await readConfig()
 
-  const provider = await selectProvider(config)
+  const provider = await (async () => {
+    const uc = String(useCase || 'execute')
+    const envKey = `RALPH_LLM_PROVIDER_${uc.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`
+    const requested = (
+      process.env[envKey] ||
+      process.env.RALPH_LLM_PROVIDER ||
+      config.llm?.use_case_providers?.[uc] ||
+      config.llm?.provider ||
+      'claude'
+    ).toLowerCase()
+
+    // Agent runner is designed to work without Claude. If requested=claude, treat as auto.
+    if (requested === 'claude') {
+      process.env.RALPH_LLM_PROVIDER = 'auto'
+    } else {
+      process.env.RALPH_LLM_PROVIDER = requested
+    }
+    return await selectProvider(config)
+  })()
   if (!provider) {
     die(
       `No non-Claude provider available. Configure one of: LM Studio, Ollama, OpenRouter.\n` +
@@ -178,7 +211,7 @@ async function main() {
   const maxSteps = Number(process.env.RALPH_AGENT_MAX_STEPS || 30)
 
   const sessionId = crypto.randomUUID?.() ?? crypto.randomBytes(16).toString('hex')
-  console.log(`[agent] session=${sessionId} provider=${provider} spec=${specPath}`)
+  console.log(`[agent] session=${sessionId} useCase=${useCase} provider=${provider} spec=${specPath}`)
 
   const toolSpec = {
     read_file: { path: 'string', start_line: 'number?', end_line: 'number?' },

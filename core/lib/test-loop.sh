@@ -83,7 +83,7 @@ Use this format:
 - [ ] E2E tests pass
 - [ ] npm run build succeeds"
 
-    llm_generate_to_file "$prompt" "$cr_file" "generate_cr" >/dev/null 2>&1 || true
+    llm_generate_to_file "$prompt" "$cr_file" "generate_cr" "execute" >/dev/null 2>&1 || true
 
     if [ -f "$cr_file" ]; then
         log "${GREEN}CR created: $cr_file${NC}"
@@ -139,19 +139,24 @@ run_design_review() {
     fi
 
     # Skip if no PRD with design system
-    if [ ! -f "docs/PRD.md" ]; then
+    local prd_file=""
+    if [ -f "docs/PRD.md" ]; then
+        prd_file="docs/PRD.md"
+    elif [ -f "docs/prd.md" ]; then
+        prd_file="docs/prd.md"
+    else
         return 0
     fi
 
     # Check if PRD has design system section
-    if ! grep -q "## Design System" docs/PRD.md 2>/dev/null; then
+    if ! grep -q "## Design System" "$prd_file" 2>/dev/null; then
         return 0
     fi
 
     log "${CYAN}Running design review...${NC}"
 
     # Extract design system from PRD
-    local design_system=$(sed -n '/## Design System/,/^## /p' docs/PRD.md | head -50)
+    local design_system=$(sed -n '/## Design System/,/^## /p' "$prd_file" | head -50)
 
     # Build prompt for Claude Vision
     local prompt="Review this screenshot against the design system.
@@ -181,9 +186,9 @@ Be concise - max 10 lines."
         :
     else
         # Fallback: text-only review (no image support)
-        result=$(llm_generate "$prompt
+	    result=$(llm_generate "$prompt
 
-NOTE: Vision not available. Provide a best-effort design/accessibility review based on the design system alone. If no issues, say 'DESIGN_OK'." "design_review_text" 2>/dev/null || true)
+NOTE: Vision not available. Provide a best-effort design/accessibility review based on the design system alone. If no issues, say 'DESIGN_OK'." "design_review_text" "vision" 2>/dev/null || true)
     fi
 
     if echo "$result" | grep -q "DESIGN_OK"; then
@@ -241,7 +246,7 @@ Format:
 - [ ] Design review passes
 - [ ] npm run build succeeds"
 
-    llm_generate_to_file "$prompt" "$cr_file" "generate_design_cr" >/dev/null 2>&1 || true
+    llm_generate_to_file "$prompt" "$cr_file" "generate_design_cr" "execute" >/dev/null 2>&1 || true
 
     if [ -f "$cr_file" ]; then
         log "${GREEN}Design CR created: $cr_file${NC}"

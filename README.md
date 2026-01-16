@@ -149,6 +149,10 @@ npx ralph-inferno install
 /ralph:plan        # Generate specs from PRD
 /ralph:deploy      # Choose mode, send to VM
 
+# 2b. Or: No Claude UI (CLI-only)
+ralph-inferno discover my-app --idea "What are we building?"
+ralph-inferno plan
+
 # 3. Next morning:
 /ralph:review      # Test what Ralph built
 
@@ -198,11 +202,18 @@ Configuration is stored in `.ralph/config.json`:
     "provider": "claude",
     "fallback_provider": "claude",
     "agent_mode": "claude",
+	    "use_case_providers": {
+	      "discover": "openrouter",
+	      "plan": "openrouter",
+	      "execute": "lmstudio",
+	      "vision": "lmstudio"
+	    },
     "timeout_seconds": 120,
     "max_retries": 2,
     "lmstudio": {
       "base_url": "http://localhost:1234",
-      "model": "qwen/qwen3-next-80b"
+	      "model": "qwen/qwen3-next-80b",
+	      "vision_model": "zai-org/glm-4.6v-flash"
     },
     "ollama": {
       "host": "http://localhost:11434",
@@ -233,9 +244,11 @@ Ralph now supports multiple inference providers **for text-generation steps** (e
 You can override config via environment variables:
 
 - `RALPH_LLM_PROVIDER` (e.g. `lmstudio`)
+- `RALPH_LLM_PROVIDER_DISCOVER` / `RALPH_LLM_PROVIDER_PLAN` / `RALPH_LLM_PROVIDER_EXECUTE` / `RALPH_LLM_PROVIDER_VISION`
 - `RALPH_AGENT_MODE` = `claude` (default) or `llm` (run specs via local/OpenRouter agent loop)
 - `RALPH_LMSTUDIO_BASE_URL` (e.g. `http://192.168.12.239:1234`)
 - `RALPH_LMSTUDIO_MODEL` (e.g. `qwen/qwen3-next-80b`)
+- `RALPH_LMSTUDIO_VISION_MODEL` (e.g. `zai-org/glm-4.6v-flash`)
 - `OPENROUTER_API_KEY` (for OpenRouter)
 
 See: [docs/LLM-PROVIDERS.md](docs/LLM-PROVIDERS.md)
