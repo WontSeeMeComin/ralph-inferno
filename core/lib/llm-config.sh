@@ -59,6 +59,12 @@ llm_max_retries() {
     _cfg_env_or_json "RALPH_LLM_MAX_RETRIES" ".llm.max_retries" "2"
 }
 
+# Agent mode (how specs are executed)
+llm_agent_mode() {
+    # claude | llm
+    _cfg_env_or_json "RALPH_AGENT_MODE" ".llm.agent_mode" "claude"
+}
+
 # LM Studio (OpenAI-compatible)
 llm_lmstudio_base_url() {
     _cfg_env_or_json "RALPH_LMSTUDIO_BASE_URL" ".llm.lmstudio.base_url" "http://localhost:1234"

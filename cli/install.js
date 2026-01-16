@@ -278,6 +278,7 @@ By continuing, you accept full responsibility for usage.
     llm: {
       provider: 'claude', // auto | lmstudio | ollama | openrouter | claude
       fallback_provider: 'claude',
+      agent_mode: 'claude', // claude | llm (llm = local/OpenRouter agent-run)
       timeout_seconds: 120,
       max_retries: 2,
       lmstudio: {

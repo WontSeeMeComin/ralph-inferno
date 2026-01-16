@@ -30,6 +30,7 @@ export async function update() {
     config.llm = {
       provider: 'claude',
       fallback_provider: 'claude',
+      agent_mode: 'claude',
       timeout_seconds: 120,
       max_retries: 2,
       lmstudio: { base_url: 'http://localhost:1234', model: 'qwen/qwen3-next-80b' },

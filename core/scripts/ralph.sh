@@ -100,9 +100,26 @@ source "$LIB_DIR/notify.sh"
 source "$LIB_DIR/git-utils.sh"
 source "$LIB_DIR/rate-limit.sh"
 	source "$LIB_DIR/llm.sh"
+	source "$LIB_DIR/llm-config.sh"
 source "$LIB_DIR/summary.sh"
 source "$LIB_DIR/tokens.sh"
 source "$LIB_DIR/test-loop.sh"
+
+	should_use_llm_agent() {
+	    # User can force via env/config: RALPH_AGENT_MODE=llm or .llm.agent_mode
+	    local mode
+	    mode="$(llm_agent_mode 2>/dev/null || echo 'claude')"
+	    if [ "$mode" = "llm" ]; then
+	        return 0
+	    fi
+
+	    # If Claude isn't installed, we must use local/OpenRouter agent.
+	    if ! command -v claude >/dev/null 2>&1; then
+	        return 0
+	    fi
+
+	    return 1
+	}
 
 # Check for --parallel (after loading libs)
 PARALLEL_MODE=false
@@ -156,7 +173,12 @@ run_spec() {
 When complete: write $COMPLETION_MARKER
 Before DONE: run 'npm run build' and verify it passes."
 
-        output=$(echo "$prompt" | timeout $TIMEOUT claude --dangerously-skip-permissions -p 2>&1) || exit_code=$?
+	        if should_use_llm_agent; then
+	            # LLM agent loop (LM Studio / Ollama / OpenRouter). No Claude dependency.
+	            output=$(timeout $TIMEOUT node "$SCRIPT_DIR/agent-run.mjs" "$spec" 2>&1) || exit_code=$?
+	        else
+	            output=$(echo "$prompt" | timeout $TIMEOUT claude --dangerously-skip-permissions -p 2>&1) || exit_code=$?
+	        fi
 
         if is_rate_limited "$output"; then
             handle_rate_limit "$spec_name"
