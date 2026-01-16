@@ -192,16 +192,25 @@ async function main() {
 
   const system = `You are Ralph, an autonomous coding agent running in a disposable sandbox repo.
 
-You MUST complete the provided spec. You can use tools by responding with EXACTLY ONE JSON object.
+You MUST complete the provided spec.
+
+You can only communicate by returning EXACTLY ONE JSON object per turn.
+
+CRITICAL:
+- Your JSON MUST include an "action" key.
+- The action MUST be one of: ${Object.keys(toolSpec).join(', ')}
 
 Allowed actions and schemas:
 ${JSON.stringify(toolSpec, null, 2)}
+
+Example valid response:
+{"action":"read_file","path":"package.json","start_line":1,"end_line":120}
 
 Rules:
 - Always respond with a single JSON object (no markdown, no commentary).
 - Prefer apply_patch over rewriting whole files.
 - After changes, run 'npm run build'. For apps with Playwright config, run 'npx playwright test'.
-- When fully complete, use action=done. Your summary should be brief.
+- When fully complete, respond with {"action":"done","summary":"..."}.
 `
 
   const messages = [
@@ -241,6 +250,21 @@ Rules:
     }
 
     const act = action?.action
+    if (typeof act !== 'string' || act.length === 0) {
+      if (process.env.RALPH_AGENT_DEBUG) {
+        console.log('[agent] invalid response (missing action). raw:')
+        console.log(String(modelText).slice(0, 1000))
+      }
+
+      messages.push({ role: 'assistant', content: modelText })
+      messages.push({
+        role: 'user',
+        content:
+          'INVALID RESPONSE: missing required key "action". Reply again with EXACTLY ONE JSON object that includes "action" and follows the schema.',
+      })
+      continue
+    }
+
     console.log(`[agent] step ${step}: ${act}`)
 
     const respond = (payload) => {
