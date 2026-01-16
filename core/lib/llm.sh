@@ -65,25 +65,63 @@ llm_select_provider() {
     local requested
     requested="$(llm_provider)"
 
+    local fallback
+    fallback="$(llm_fallback_provider)"
+
+    _select_auto() {
+        # Prefer local first
+        llm_healthcheck_lmstudio && echo "lmstudio" && return 0
+        llm_healthcheck_ollama && echo "ollama" && return 0
+        llm_healthcheck_openrouter && echo "openrouter" && return 0
+        llm_healthcheck_claude && echo "claude" && return 0
+        echo "claude"
+    }
+
     case "$requested" in
         lmstudio)
-            llm_healthcheck_lmstudio && echo "lmstudio" || echo "$(llm_fallback_provider)"
+            if llm_healthcheck_lmstudio; then
+                echo "lmstudio"
+            elif [ "$fallback" = "ollama" ] && llm_healthcheck_ollama; then
+                echo "ollama"
+            elif [ "$fallback" = "openrouter" ] && llm_healthcheck_openrouter; then
+                echo "openrouter"
+            elif [ "$fallback" = "claude" ] && llm_healthcheck_claude; then
+                echo "claude"
+            else
+                _select_auto
+            fi
             ;;
         ollama)
-            llm_healthcheck_ollama && echo "ollama" || echo "$(llm_fallback_provider)"
+            if llm_healthcheck_ollama; then
+                echo "ollama"
+            elif [ "$fallback" = "lmstudio" ] && llm_healthcheck_lmstudio; then
+                echo "lmstudio"
+            elif [ "$fallback" = "openrouter" ] && llm_healthcheck_openrouter; then
+                echo "openrouter"
+            elif [ "$fallback" = "claude" ] && llm_healthcheck_claude; then
+                echo "claude"
+            else
+                _select_auto
+            fi
             ;;
         openrouter)
-            llm_healthcheck_openrouter && echo "openrouter" || echo "$(llm_fallback_provider)"
+            if llm_healthcheck_openrouter; then
+                echo "openrouter"
+            elif [ "$fallback" = "lmstudio" ] && llm_healthcheck_lmstudio; then
+                echo "lmstudio"
+            elif [ "$fallback" = "ollama" ] && llm_healthcheck_ollama; then
+                echo "ollama"
+            elif [ "$fallback" = "claude" ] && llm_healthcheck_claude; then
+                echo "claude"
+            else
+                _select_auto
+            fi
             ;;
         claude)
             echo "claude"
             ;;
         auto|*)
-            # Prefer local first
-            llm_healthcheck_lmstudio && echo "lmstudio" && return 0
-            llm_healthcheck_ollama && echo "ollama" && return 0
-            llm_healthcheck_openrouter && echo "openrouter" && return 0
-            echo "claude"
+            _select_auto
             ;;
     esac
 }
