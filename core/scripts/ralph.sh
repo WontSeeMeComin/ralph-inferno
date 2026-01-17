@@ -191,7 +191,8 @@ Before DONE: run 'npm run build' and verify it passes."
 	            output=$(echo "$prompt" | timeout $TIMEOUT claude --dangerously-skip-permissions -p 2>&1) || exit_code=$?
 	        fi
 
-        if is_rate_limited "$output"; then
+        # Only check rate limits for Claude API, not local LLM providers
+        if ! should_use_llm_agent && is_rate_limited "$output"; then
             handle_rate_limit "$spec_name"
             continue
         fi

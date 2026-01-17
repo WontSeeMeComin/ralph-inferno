@@ -302,6 +302,12 @@ You MUST complete the provided spec.
 
 You can only communicate by returning EXACTLY ONE JSON object per turn.
 
+CRITICAL FIRST STEP:
+- Your FIRST action MUST be: {"action":"run","cmd":"pwd"}
+- This shows your working directory. You are ALREADY in the project folder.
+- NEVER create subdirectories for the project. Work in current directory (.).
+- Example: "npm create vite@latest . --template react-ts" uses "." for current dir.
+
 CRITICAL:
 - Your JSON MUST include an "action" key.
 - The action MUST be one of: ${Object.keys(toolSpec).join(', ')}
@@ -310,10 +316,12 @@ Allowed actions and schemas:
 ${JSON.stringify(toolSpec, null, 2)}
 
 Example valid response:
-{"action":"read_file","path":"package.json","start_line":1,"end_line":120}
+{"action":"run","cmd":"pwd"}
 
 Rules:
 - Always respond with a single JSON object (no markdown, no commentary).
+- FIRST: Run pwd to confirm your working directory.
+- NEVER create a new folder for the project - you're already in it.
 - Prefer apply_patch over rewriting whole files.
 - After changes, run 'npm run build'. For apps with Playwright config, run 'npx playwright test'.
 - When fully complete, respond with {"action":"done","summary":"..."}.
