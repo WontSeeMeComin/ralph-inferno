@@ -275,13 +275,12 @@ async function main() {
   }
 
   const timeoutSeconds = Number(envOr(config, 'RALPH_LLM_TIMEOUT_SECONDS', (c) => c.llm?.timeout_seconds, '120'))
-  const maxSteps = Number(process.env.RALPH_AGENT_MAX_STEPS || 30)
 
   const sessionId = crypto.randomUUID?.() ?? crypto.randomBytes(16).toString('hex')
   log(`=== AGENT START ===`)
   log(`spec: ${specPath}`)
   log(`provider: ${provider} | model: ${modelFor({ provider, config, useCase })}`)
-  log(`timeout: ${timeoutSeconds}s | maxSteps: ${maxSteps}`)
+  log(`timeout: ${timeoutSeconds}s | steps: unlimited (bash timeout governs)`)
 
   const toolSpec = {
     read_file: { path: 'string', start_line: 'number?', end_line: 'number?' },
@@ -330,8 +329,10 @@ Rules:
     },
   ]
 
-  for (let step = 1; step <= maxSteps; step++) {
-    log(`--- step ${step}/${maxSteps} ---`)
+  let step = 0
+  while (true) {
+    step++
+    log(`--- step ${step} ---`)
     let modelText
     try {
       modelText = await llmChat({ provider, config, messages, timeoutSeconds, useCase })
@@ -455,9 +456,7 @@ Rules:
     log(`unknown action: ${act}`)
     respond({ ok: false, error: `Unknown action: ${act}` })
   }
-
-  log(`=== FAILED: max steps (${maxSteps}) reached ===`)
-  process.exit(3)
+  // Loop exits only via: done → exit(0), LLM error → exit(2), or bash timeout kills process
 }
 
 main().catch((e) => {
