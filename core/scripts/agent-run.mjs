@@ -246,6 +246,9 @@ async function main() {
   const spec = await fs.readFile(specPath, 'utf8').catch(() => null)
   if (spec == null) die(`Spec not found: ${specPath}`)
 
+  // Load CLAUDE.md for project context (critical for non-Claude agents)
+  const claudeMd = await fs.readFile('CLAUDE.md', 'utf8').catch(() => null)
+
   const { json: config, path: cfgPath } = await readConfig()
 
   const provider = await (async () => {
@@ -281,6 +284,7 @@ async function main() {
   log(`spec: ${specPath}`)
   log(`provider: ${provider} | model: ${modelFor({ provider, config, useCase })}`)
   log(`timeout: ${timeoutSeconds}s | steps: unlimited (bash timeout governs)`)
+  log(`CLAUDE.md: ${claudeMd ? `loaded (${claudeMd.length} chars)` : 'not found'}`)
 
   const toolSpec = {
     read_file: { path: 'string', start_line: 'number?', end_line: 'number?' },
@@ -320,12 +324,15 @@ Rules:
     {
       role: 'user',
       content:
+        (claudeMd
+          ? `PROJECT CONTEXT (CLAUDE.md):\n${claudeMd}\n\n---\n\n`
+          : '') +
         `SPEC FILE: ${specPath}\n\n` +
         `${spec}\n\n` +
         (process.env.RALPH_AGENT_EXTRA_CONTEXT
-          ? `\n\n---\nADDITIONAL CONTEXT (from previous failures):\n${process.env.RALPH_AGENT_EXTRA_CONTEXT}\n`
+          ? `---\nADDITIONAL CONTEXT (from previous failures):\n${process.env.RALPH_AGENT_EXTRA_CONTEXT}\n\n`
           : '') +
-        `\nRemember: reply with a single JSON tool action.`,
+        `Remember: reply with a single JSON tool action.`,
     },
   ]
 

@@ -115,7 +115,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'rawlist',
       name: 'language',
-      message: 'Language?
+      message: 'Language',
       choices: [
         { name: 'English (recommended)', value: 'en' },
         { name: 'Svenska', value: 'sv' },
@@ -128,7 +128,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'rawlist',
       name: 'provider',
-      message: 'Cloud Provider for VM?
+      message: 'Cloud Provider for VM?',
       choices: [
         { name: 'Hetzner (hcloud)', value: 'hcloud' },
         { name: 'Google Cloud (gcloud)', value: 'gcloud' },
@@ -158,13 +158,13 @@ By continuing, you accept full responsibility for usage.
       {
         type: 'input',
         name: 'vm_name',
-        message: 'VM name?
+        message: 'VM name?',
         default: 'ralph-sandbox'
       },
       {
         type: 'input',
         name: 'region',
-        message: 'Region?
+        message: 'Region?',
         default: answers.provider === 'hcloud' ? 'fsn1' :
                  answers.provider === 'gcloud' ? 'europe-north1-a' :
                  answers.provider === 'doctl' ? 'fra1' : 'eu-west-1'
@@ -178,7 +178,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'rawlist',
       name: 'useNtfy',
-      message: 'Enable ntfy.sh notifications?
+      message: 'Enable ntfy.sh notifications?',
       choices: [
         { name: 'Yes (recommended)', value: true },
         { name: 'No', value: false }
@@ -187,7 +187,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'input',
       name: 'ntfyTopic',
-      message: 'ntfy.sh topic name?
+      message: 'ntfy.sh topic name?',
       when: (a) => a.useNtfy,
       default: 'ralph-notifications'
     }
@@ -203,7 +203,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'input',
       name: 'github_username',
-      message: 'GitHub username?
+      message: 'GitHub username?',
       default: detectedGithub
     }
   ]);
@@ -213,7 +213,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'rawlist',
       name: 'claudeAuth',
-      message: 'How will Claude authenticate on the VM?
+      message: 'How will Claude authenticate on the VM?',
       choices: [
         { name: 'Claude Pro/Max subscription (recommended)', value: 'subscription' },
         { name: 'Anthropic API key', value: 'api_key' }
