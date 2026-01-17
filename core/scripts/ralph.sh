@@ -212,32 +212,9 @@ Before DONE: run 'npm run build' and verify it passes."
 	            verify_out=$(verify_build 2>&1)
 	            local verify_code=$?
 	            if [ $verify_code -eq 0 ]; then
-                # Run E2E tests if available
-                if ! run_e2e_tests; then
-                    local cr_spec="specs/CR-fix-${spec_name}.md"
-                    if generate_cr "$spec_name" && [ -f "$cr_spec" ]; then
-                        log "${YELLOW}Running CR fix...${NC}"
-                        run_spec "$cr_spec"
-                        rm -f "$cr_spec"
-                    fi
-                    ((attempt++))
-                    continue
-                fi
-
-                # Run design review (optional, after E2E pass)
-                take_screenshots ".screenshots"
-                if ! run_design_review "$spec_name"; then
-                    local design_cr="specs/CR-design-${spec_name}.md"
-                    if generate_design_cr "$spec_name" && [ -f "$design_cr" ]; then
-                        log "${YELLOW}Running design fix...${NC}"
-                        run_spec "$design_cr"
-                        rm -f "$design_cr"
-                    fi
-                    ((attempt++))
-                    continue
-                fi
-
-                log "${GREEN}✅ Verified${NC}"
+                # Clean loop = Quick mode = build verify only (no E2E, no design review)
+                # E2E tests and design review run in orchestrator.sh (Standard/Inferno modes)
+                log "${GREEN}✅ Build verified${NC}"
                 check_dangerous && check_secrets && commit_and_push "Ralph: $spec_name"
                 mark_spec_done "$spec"
                 notify_spec_done "$spec"

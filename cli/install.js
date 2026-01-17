@@ -256,6 +256,7 @@ By continuing, you accept full responsibility for usage.
   }
 
   // Build config
+  // Note: deploy_mode is selected at deploy time via /ralph:deploy, not stored here
   const config = {
     version: '1.0.0',
     language: answers.language,
