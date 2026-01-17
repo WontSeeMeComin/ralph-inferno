@@ -1,7 +1,7 @@
 # Preflight Checklist
 
-> ⚠️ Alla checkboxar MÅSTE vara ✅ innan /ralph:deploy körs
-> Genererad från PRD av Ralph Inferno
+> ⚠️ All checkboxes MUST be ✅ before /ralph:deploy is run
+> Generated from PRD by Ralph Inferno
 
 ---
 
@@ -16,14 +16,14 @@
 
 ## API Keys Needed
 
-Lägg till dessa i `.env` på VM:
+Add these to `.env` on the VM:
 
 ```bash
 # Required
 {SERVICE1_API_KEY}=
 {SERVICE2_SECRET}=
 
-# Supabase (om används)
+# Supabase (if used)
 SUPABASE_URL=
 SUPABASE_ANON_KEY=
 SUPABASE_SERVICE_ROLE_KEY=
@@ -31,8 +31,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 | Variable | Service | How to get |
 |----------|---------|------------|
-| [ ] `{VAR1}` | {service} | {instruktion} |
-| [ ] `{VAR2}` | {service} | {instruktion} |
+| [ ] `{VAR1}` | {service} | {instruction} |
+| [ ] `{VAR2}` | {service} | {instruction} |
 
 ---
 
@@ -58,7 +58,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 
 ## Manual Setup Steps
 
-> Dessa steg kan inte automatiseras och måste göras manuellt
+> These steps cannot be automated and must be done manually
 
 ### Webhooks
 - [ ] {Service} webhook URL configured: `https://{domain}/api/webhooks/{service}`
@@ -118,7 +118,7 @@ STATUS: [ ] READY FOR DEV
 
 ---
 
-**När allt är klart, kör:**
+**When everything is ready, run:**
 ```bash
 /ralph:deploy
 ```

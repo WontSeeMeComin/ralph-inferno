@@ -1,8 +1,8 @@
 #!/bin/bash
 # setup.sh - React + Supabase stack setup
 #
-# Körs automatiskt av Ralph vid projektstart
-# KRAV: Docker måste köra för Supabase
+# Automatically run by ralph at project start
+# REQUIREMENT: Docker must run for Supabase
 
 set -e
 
@@ -12,48 +12,48 @@ cd "$PROJECT_DIR"
 echo "🚀 React + Supabase Setup"
 echo "========================="
 
-# 1. Installera dependencies om package.json finns
+# 1. Install dependencies if package.json exists
 if [ -f "package.json" ]; then
     if [ ! -d "node_modules" ]; then
-        echo "📦 Installerar npm dependencies..."
+        echo "📦 Installing npm dependencies..."
         npm install
     fi
 fi
 
-# 2. Kolla Docker (KRAV)
-echo "🐳 Kollar Docker..."
+# 2. Check Docker (REQUIRED)
+echo "🐳 Checking Docker..."
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker ej installerat"
-    echo "   Installera Docker: https://docs.docker.com/get-docker/"
+    echo "❌ Docker not installed"
+    echo "Install Docker: https://docs.docker.com/get-docker/"
     exit 1
 fi
 
 if ! docker info > /dev/null 2>&1; then
-    echo "⚠️  Docker körs inte - försöker starta..."
+    echo "⚠️ Docker not running - trying to start..."
 
-    # Försök starta Docker
+    # Try to start Docker
     if command -v systemctl &> /dev/null; then
         sudo systemctl start docker 2>/dev/null || true
         sleep 3
     fi
 
-    # Kolla igen
+    # Check again
     if ! docker info > /dev/null 2>&1; then
-        echo "❌ Kunde inte starta Docker"
-        echo "   Starta Docker manuellt och kör setup igen"
+        echo "❌ Could not start Docker"
+        echo " Start Docker manually and run setup again"
         exit 1
     fi
 fi
-echo "   ✅ Docker OK"
+echo " ✅ Docker OK"
 
-# 3. Playwright för E2E-tester
-echo "🎭 Kollar Playwright..."
+# 3. Playwright for E2E tests
+echo "🎭 Checking Playwright..."
 if [ ! -f "playwright.config.ts" ] && [ ! -f "playwright.config.js" ]; then
-    echo "   📦 Installerar Playwright..."
+    echo " 📦 Installing Playwright..."
     npm install -D @playwright/test
     npx playwright install chromium --with-deps 2>/dev/null || npx playwright install chromium
 
-    # Skapa minimal config om saknas
+    # Create minimal config if missing
     cat > playwright.config.ts << 'EOF'
 import { defineConfig } from '@playwright/test';
 
@@ -71,28 +71,28 @@ export default defineConfig({
 });
 EOF
 
-    # Skapa e2e-mapp (Claude ska skapa riktiga tester)
+    # Create e2e folder (Claude should create real tests)
     mkdir -p e2e
     cat > e2e/.gitkeep << 'EOF'
-# E2E-tester ska skapas av Claude
-# Se CLAUDE.md för krav på E2E-tester
-# Tester ska verifiera hela användarflödet, inte bara att sidan laddar
+# E2E tests should be created by Claude
+# See CLAUDE.md for E2E test requirements
+# Tests should verify the entire user flow, not just that the page loads
 EOF
-    echo "   ✅ Playwright installerat (Claude skapar E2E-tester)"
+    echo " ✅ Playwright installed (Claude creates E2E tests)"
 else
-    echo "   ✅ Playwright config finns"
+    echo " ✅ Playwright config exists"
 fi
 
 # 3. Supabase setup
 if [ -d "supabase" ] || [ -f "supabase/config.toml" ]; then
-    echo "📊 Startar Supabase..."
+    echo "📊 Starting Supabase..."
 
-    # Starta om inte redan igång
+    # Start if not already running
     if ! supabase status > /dev/null 2>&1; then
         supabase start
     fi
 
-    # Hämta credentials
+    # Get credentials
     API_URL=$(supabase status 2>/dev/null | grep -E "API URL|Project URL" | awk '{print $NF}' | head -1)
     ANON_KEY=$(supabase status 2>/dev/null | grep -E "anon key|Publishable" | awk '{print $NF}' | head -1)
 
@@ -100,11 +100,11 @@ if [ -d "supabase" ] || [ -f "supabase/config.toml" ]; then
         API_URL="http://127.0.0.1:54321"
     fi
 
-    # Uppdatera .env
+    # Update .env
     if [ -n "$ANON_KEY" ]; then
-        echo "📝 Uppdaterar .env..."
+        echo "📝 Updating .env..."
 
-        # Ta bort gamla SUPABASE-rader
+        # Delete old SUPABASE lines
         if [ -f ".env" ]; then
             grep -v "SUPABASE" .env > .env.tmp 2>/dev/null || true
             mv .env.tmp .env
@@ -113,44 +113,44 @@ if [ -d "supabase" ] || [ -f "supabase/config.toml" ]; then
         echo "VITE_SUPABASE_URL=$API_URL" >> .env
         echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY" >> .env
 
-        echo "✅ .env konfigurerad"
+        echo "✅ .env configured"
     fi
 
-    # Kör migrations om finns
+    # Run migrations if available
     if [ -d "supabase/migrations" ] && [ -n "$(ls supabase/migrations/*.sql 2>/dev/null)" ]; then
-        echo "📊 Kör databasmigrering..."
+        echo "📊 Run database migration..."
         supabase db reset --no-seed 2>/dev/null || supabase db reset
     fi
 fi
 
-# 4. ntfy för notifikationer
-echo "📣 Kollar ntfy..."
+# 4. ntfy for notifications
+echo "📣 Checking ntfy..."
 RALPH_CONFIG="$HOME/.ralph-vm"
 if [ -f "$RALPH_CONFIG" ]; then
     source "$RALPH_CONFIG"
 fi
 
 if [ -z "${NTFY_TOPIC:-}" ]; then
-    # Generera unik topic baserat på projekt + timestamp
+    # Generate unique topic based on project + timestamp
     PROJECT_NAME=$(basename "$PROJECT_DIR")
     RANDOM_SUFFIX=$(head -c 4 /dev/urandom | xxd -p)
     NTFY_TOPIC="ralph-${PROJECT_NAME}-${RANDOM_SUFFIX}"
 
-    echo "   📝 Skapar ntfy topic: $NTFY_TOPIC"
+    echo " 📝 Creating ntfy topic: $NTFY_TOPIC"
     echo "NTFY_TOPIC=$NTFY_TOPIC" >> "$RALPH_CONFIG"
 
-    echo "   💡 Prenumerera på: https://ntfy.sh/$NTFY_TOPIC"
-    echo "   📱 Eller i ntfy-appen: $NTFY_TOPIC"
+    echo " 💡 Subscribe to: https://ntfy.sh/$NTFY_TOPIC"
+    echo " 📱 Or in the ntfy app: $NTFY_TOPIC"
 else
-    echo "   ✅ ntfy topic: $NTFY_TOPIC"
+    echo " ✅ ntfy topic: $NTFY_TOPIC"
 fi
 
-# Skicka test-notis
+# Send test note
 if command -v curl &> /dev/null; then
-    curl -s -d "Ralph setup klar för $(basename $PROJECT_DIR)" "ntfy.sh/${NTFY_TOPIC}" > /dev/null 2>&1 || true
+    curl -s -d "ralph setup ready for $(basename $PROJECT_DIR)" "ntfy.sh/${NTFY_TOPIC}" > /dev/null 2>&1 || true
 fi
 
 echo ""
-echo "✅ Setup klar!"
+echo "✅ Setup ready!"
 echo ""
 echo "📣 ntfy: https://ntfy.sh/${NTFY_TOPIC}"

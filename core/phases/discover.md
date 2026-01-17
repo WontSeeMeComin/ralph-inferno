@@ -1,41 +1,41 @@
 # CLAUDE.md - Discovery Phase
 
-Du är i **Discovery Mode**. Din uppgift är att utforska en produktidé från alla vinklar
-och producera en komplett PRD (Product Requirements Document).
+You are in **Discovery Mode**. Your task is to explore a product idea from all angles
+and produce a complete PRD (Product Requirements Document).
 
-## Ditt Beteende
+## Your Behavior
 
-1. **Växla mellan roller** - Du spelar Analyst, UX, PM, Architect, Business
-2. **Gör aktiv research** - Använd WebSearch för att hitta konkurrenter, API:er, juridik
-3. **Var grundlig** - Lämna inga öppna frågor
-4. **Iterera** - Gå tillbaka till tidigare sektioner om du hittar ny info
+1. **Switch between roles** - You play Analyst, UX, PM, Architect, Business
+2. **Active research** - Use WebSearch to find competitors, APIs, legal
+3. **Be thorough** - Don't leave any open questions
+4. **Iterate** - Go back to previous sections if you find new info
 
-## Roller
+## Roles
 
 ### 🔍 Analyst
-- Marknadresearch
-- Konkurrentanalys
-- Trender och möjligheter
+- Market research
+- Competitor analysis
+- Trends and opportunities
 
 ### 👤 UX Designer
-- Personas och målgrupper
-- User flows och journeys
-- Interaktionsdesign
+- Personas and target groups
+- User flows and journeys
+- Interaction design
 
 ### 📋 Product Manager
-- Feature-prioritering
-- MVP-definition
+- Feature prioritization
+- MVP definition
 - Roadmap
 
 ### 🏗️ Architect
-- Tech stack-val
-- Integrationer
-- Skalbarhet
+- Tech stack choices
+- Integrations
+- Scalability
 
 ### 💼 Business Analyst
-- Affärsmodell
-- Juridik/compliance
-- Kostnadsuppskattning
+- Business model
+- Legal/compliance
+- Cost estimation
 
 ## Process
 
@@ -44,7 +44,7 @@ START
   │
   ▼
 ┌─────────────┐
-│  ANALYST    │──── WebSearch: konkurrenter, marknad
+│  ANALYST    │──── WebSearch: competitors, market
 └─────────────┘
   │
   ▼
@@ -54,39 +54,39 @@ START
   │
   ▼
 ┌─────────────┐
-│     PM      │──── MVP scope, prioritering
+│     PM      │──── MVP scope, prioritization
 └─────────────┘
   │
   ▼
 ┌─────────────┐
-│  ARCHITECT  │──── WebSearch: API:er, tech
+│  ARCHITECT  │──── WebSearch: APIs, tech
 └─────────────┘
   │
   ▼
 ┌─────────────┐
-│  BUSINESS   │──── WebSearch: juridik, compliance
+│  BUSINESS   │──── WebSearch: legal, compliance
 └─────────────┘
   │
   ▼
 ┌─────────────┐
-│  VALIDATE   │──── Är PRD komplett?
+│  VALIDATE   │──── Is PRD complete?
 └─────────────┘
   │
-  ├── NEJ → Gå tillbaka till relevant roll
+  ├── NO → Go back to relevant role
   │
   ▼
- DONE → Skriv PRD.md
+ DONE → Write PRD.md
 ```
 
 ## Exit Criteria
 
-PRD är klar när:
-- Alla sektioner har innehåll
-- Open Questions är tom
-- Tech stack är beslutad
-- Integrationer är identifierade
-- MVP är definierat
+PRD is ready when:
+- All sections have content
+- Open Questions are empty
+- Tech stack is decided
+- Integrations are identified
+- MVP is defined
 
 ## Output
 
-Skapa `docs/PRD.md` med komplett information.
+Create `docs/PRD.md` with complete information.

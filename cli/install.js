@@ -34,32 +34,32 @@ function checkCli(cmd) {
 }
 
 export async function install() {
-  // Röd/orange brick-stil som i originalet
+  // Red/orange brick style as in the original
   const fire = chalk.hex('#FF6B35');
   const brick = chalk.hex('#C84B31');
   const gold = chalk.hex('#FFD700');
 
   console.log(fire(`
   🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
-  🔥                                              🔥
+  🔥 🔥
   🔥  `) + brick(`██████╗  █████╗ ██╗     ██████╗ ██╗  ██╗`) + fire(`    🔥
   🔥  `) + brick(`██╔══██╗██╔══██╗██║     ██╔══██╗██║  ██║`) + fire(`    🔥
   🔥  `) + brick(`██████╔╝███████║██║     ██████╔╝███████║`) + fire(`    🔥
   🔥  `) + brick(`██╔══██╗██╔══██║██║     ██╔═══╝ ██╔══██║`) + fire(`    🔥
   🔥  `) + brick(`██║  ██║██║  ██║███████╗██║     ██║  ██║`) + fire(`    🔥
   🔥  `) + brick(`╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝  ╚═╝`) + fire(`    🔥
-  🔥                                              🔥
-  🔥          `) + gold(`I N F E R N O   M O D E`) + fire(`             🔥
-  🔥                                              🔥
-  🔥  `) + gold(`Build while you sleep. Wake to working code`) + fire(` 🔥
-  🔥                   🌙 → ☀️`) + fire(`                     🔥
-  🔥                                              🔥
+  🔥 🔥
+  🔥 `) + gold(`I N F E R N O M O D E`) + fire(` 🔥
+  🔥 🔥
+  🔥 `) + gold(`Build while you sleep. Wake to working code`) + fire(` 🔥
+  🔥 🌙 → ☀️`) + fire(` 🔥
+  🔥 🔥
   🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥🔥
 `));
 
   // Disclaimer
   console.log(chalk.yellow(`
-⚠️  DISCLAIMER
+⚠️ DISCLAIMER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Ralph Inferno runs AI-driven autonomous code.
@@ -67,12 +67,12 @@ Ralph Inferno runs AI-driven autonomous code.
 `), chalk.red(`
 🔴 ALWAYS RUN RALPH IN AN EXTERNAL SANDBOX ENVIRONMENT!
    Use a disposable VM that can be destroyed if something goes wrong.
-   NEVER run Ralph directly on your local machine.
+   NEVER run ralph directly on your local machine.
 `), chalk.yellow(`
-• YOU are fully responsible for all actions performed
-• Review generated code before running in production
-• NEVER store sensitive credentials in code or config
-• Ralph can make mistakes - monitor and verify results
+- YOU are fully responsible for all actions performed
+- Review generated code before running in production
+- NEVER store sensitive credentials in code or config
+- Ralph can make mistakes - monitor and verify results
 
 By continuing, you accept full responsibility for usage.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -89,7 +89,7 @@ By continuing, you accept full responsibility for usage.
   }]);
 
   if (!acceptDisclaimer) {
-    console.log(chalk.dim('Installation cancelled.'));
+    console.log(chalk.dim('Installation canceled.'));
     return;
   }
 
@@ -105,7 +105,7 @@ By continuing, you accept full responsibility for usage.
     }]);
 
     if (!overwrite) {
-      console.log(chalk.yellow('Use "ralph-inferno update" to update core files.'));
+      console.log(chalk.yellow('Use "ralph-inferno update" to update core files.'))
       return;
     }
   }
@@ -115,7 +115,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'rawlist',
       name: 'language',
-      message: 'Language?',
+      message: 'Language?
       choices: [
         { name: 'English (recommended)', value: 'en' },
         { name: 'Svenska', value: 'sv' },
@@ -128,7 +128,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'rawlist',
       name: 'provider',
-      message: 'Cloud Provider for VM?',
+      message: 'Cloud Provider for VM?
       choices: [
         { name: 'Hetzner (hcloud)', value: 'hcloud' },
         { name: 'Google Cloud (gcloud)', value: 'gcloud' },
@@ -144,7 +144,7 @@ By continuing, you accept full responsibility for usage.
   if (answers.provider !== 'none' && answers.provider !== 'ssh') {
     const cliName = answers.provider;
     if (!checkCli(cliName)) {
-      console.log(chalk.yellow(`\n⚠️  ${cliName} CLI not found.`));
+      console.log(chalk.yellow(`\n⚠️ ${cliName} CLI not found.`));
       console.log(chalk.dim(`Install with: brew install ${cliName === 'gcloud' ? '--cask google-cloud-sdk' : cliName}`));
     } else {
       console.log(chalk.green(`✓ ${cliName} CLI found`));
@@ -158,13 +158,13 @@ By continuing, you accept full responsibility for usage.
       {
         type: 'input',
         name: 'vm_name',
-        message: 'VM name?',
+        message: 'VM name?
         default: 'ralph-sandbox'
       },
       {
         type: 'input',
         name: 'region',
-        message: 'Region?',
+        message: 'Region?
         default: answers.provider === 'hcloud' ? 'fsn1' :
                  answers.provider === 'gcloud' ? 'europe-north1-a' :
                  answers.provider === 'doctl' ? 'fra1' : 'eu-west-1'
@@ -178,7 +178,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'rawlist',
       name: 'useNtfy',
-      message: 'Enable ntfy.sh notifications?',
+      message: 'Enable ntfy.sh notifications?
       choices: [
         { name: 'Yes (recommended)', value: true },
         { name: 'No', value: false }
@@ -187,7 +187,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'input',
       name: 'ntfyTopic',
-      message: 'ntfy.sh topic name?',
+      message: 'ntfy.sh topic name?
       when: (a) => a.useNtfy,
       default: 'ralph-notifications'
     }
@@ -203,7 +203,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'input',
       name: 'github_username',
-      message: 'GitHub username?',
+      message: 'GitHub username?
       default: detectedGithub
     }
   ]);
@@ -213,7 +213,7 @@ By continuing, you accept full responsibility for usage.
     {
       type: 'rawlist',
       name: 'claudeAuth',
-      message: 'How will Claude authenticate on the VM?',
+      message: 'How will Claude authenticate on the VM?
       choices: [
         { name: 'Claude Pro/Max subscription (recommended)', value: 'subscription' },
         { name: 'Anthropic API key', value: 'api_key' }
@@ -225,31 +225,31 @@ By continuing, you accept full responsibility for usage.
   if (authAnswers.claudeAuth === 'subscription') {
     console.log(chalk.cyan(`
 ┌─────────────────────────────────────────────────────────────┐
-│  Claude Subscription Setup                                  │
+│ Claude Subscription Setup │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  After VM is created, SSH in and run:                       │
+│ After VM is created, SSH in and run: │
 │                                                             │
-│    claude login                                             │
+│ claude login │
 │                                                             │
-│  This will open a browser to authenticate.                  │
-│  You only need to do this once per VM.                      │
+│ This will open a browser to authenticate.                  │
+│ You only need to do this once per VM.                      │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 `));
   } else {
     console.log(chalk.cyan(`
 ┌─────────────────────────────────────────────────────────────┐
-│  Anthropic API Key Setup                                    │
+│ Anthropic API Key Setup │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
-│  After VM is created, set the environment variable:         │
+│ After VM is created, set the environment variable: │
 │                                                             │
-│    export ANTHROPIC_API_KEY="sk-ant-..."                    │
+│ export ANTHROPIC_API_KEY="sk-ant-..."                    │
 │                                                             │
-│  Add to ~/.bashrc for persistence:                          │
+│ Add to ~/.bashrc for persistence: │
 │                                                             │
-│    echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.bashrc│
+│ echo 'export ANTHROPIC_API_KEY="sk-ant-..."' >> ~/.bashrc│
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 `));
@@ -275,7 +275,7 @@ By continuing, you accept full responsibility for usage.
     },
     // LLM/inference configuration (can be overridden via env vars)
     // Default keeps existing Claude-based workflows intact.
-    llm: {
+    LLM: {
       provider: 'claude', // auto | lmstudio | ollama | openrouter | claude
       fallback_provider: 'claude',
       agent_mode: 'claude', // claude | llm (llm = local/OpenRouter agent-run)
@@ -302,7 +302,7 @@ By continuing, you accept full responsibility for usage.
 
       // Optional per-use-case provider routing.
       // Examples:
-      //   use_case_providers: { plan: 'openrouter', discover: 'openrouter', execute: 'lmstudio', vision: 'lmstudio' }
+      // use_case_providers: { plan: 'openrouter', discover: 'openrouter', execute: 'lmstudio', vision: 'lmstudio' }
       use_case_providers: {}
     }
   };
@@ -340,7 +340,7 @@ By continuing, you accept full responsibility for usage.
   // Create ralph wrapper script
   const wrapperPath = 'ralph';
   await fs.writeFile(wrapperPath, `#!/bin/bash
-# Ralph CLI wrapper
+# ralph CLI wrapper
 RALPH_DIR=".ralph"
 exec "$RALPH_DIR/scripts/ralph.sh" "$@"
 `);
@@ -351,13 +351,13 @@ exec "$RALPH_DIR/scripts/ralph.sh" "$@"
   console.log(chalk.green(`
 ╔═══════════════════════════════════════════════════════════╗
 ║                                                           ║
-║              🔥 RALPH INFERNO INSTALLED! 🔥               ║
+║ 🔥 RALPH INFERNO INSTALLED! 🔥 ║
 ║                                                           ║
 ╚═══════════════════════════════════════════════════════════╝
 `));
 
   console.log(chalk.cyan('Next steps:'));
-  console.log(chalk.dim('  1. Run /discover in Claude Code to set up your project'));
-  console.log(chalk.dim('  2. Or run: ./ralph --help'));
+  console.log(chalk.dim(' 1. Run /discover in Claude Code to set up your project'));
+  console.log(chalk.dim(' 2. Or run: ./ralph --help'));
   console.log('');
 }

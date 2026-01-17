@@ -8,42 +8,42 @@
 #  ██║  ██║██║  ██║███████╗██║     ██║  ██║
 #  ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝  ╚═╝
 #
-#  The One Script To Rule Them All
+# The One Script To Rule Them All
 #
 # =============================================================================
 #
 # Usage:
-#   ./ralph.sh                     # Kör alla specs i specs/
-#   ./ralph.sh specs/10-theme.md   # Kör en spec
-#   ./ralph.sh specs/*.md          # Kör flera specs (parallellt om >1)
-#   ./ralph.sh --status            # Visa status
-#   ./ralph.sh --watch             # Fireplace view (live monitoring)
-#   ./ralph.sh --help              # Hjälp
+# ./ralph.sh # Run all specs in specs/
+# ./ralph.sh specs/10-theme.md # Run one spec
+# ./ralph.sh specs/*.md # Run multiple specs (in parallel if >1)
+# ./ralph.sh --status # Show status
+# ./ralph.sh --watch # Fireplace view (live monitoring)
+# ./ralph.sh --help # Help
 #
 # Features:
-#   ✓ Self-healing (retries med felrapport)
-#   ✓ Rate limit & token tracking
-#   ✓ Build lock cleanup
-#   ✓ Backup & secrets scanning
-#   ✓ Dangerous command blocking
-#   ✓ Git branch isolation
-#   ✓ Smart parallel execution (worktrees, max 3)
-#   ✓ Smart conflict resolution (auto-resolve test/logs, pause on source)
-#   ✓ Supervisor quality checks
-#   ✓ Auto-merge om säkert
-#   ✓ GitHub PR om manuell review behövs
-#   ✓ ntfy notifications
-#   ✓ Summary rapport
-#   ✓ progress.txt (short-term memory - Ryan Carson)
-#   ✓ CLAUDE.md updates (long-term memory)
-#   ✓ Checksum tracking (skippa redan körda specs)
+# ✓ Self-healing (retries with error report)
+# ✓ Rate limit & token tracking
+# ✓ Build lock cleanup
+# ✓ Backup & secrets scanning
+# ✓ Dangerous command blocking
+# ✓ Git branch isolation
+# ✓ Smart parallel execution (worktrees, max 3)
+# ✓ Smart conflict resolution (auto-resolve test/logs, pause on source)
+# ✓ Supervisor quality checks
+# ✓ Auto-merge if safe
+# ✓ GitHub PRs if manual review needed
+# ✓ ✓ ntfy notifications
+# ✓ ✓ Summary report
+# ✓ ✓ progress.txt (short-term memory - Ryan Carson)
+# ✓ ✓ CLAUDE.md updates (long-term memory)
+# ✓ Checksum tracking (skip already run specs)
 #
 # =============================================================================
 
 set -uo pipefail
 
 # =============================================================================
-# KONFIGURATION
+# CONFIGURATION
 # =============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RALPH_DIR="$(dirname "$SCRIPT_DIR")"
@@ -51,31 +51,31 @@ TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 
 # Timing & Retries
 MAX_RETRIES=3
-PARALLEL_THRESHOLD=2  # Kör parallellt om fler specs än detta
+PARALLEL_THRESHOLD=2 # Run in parallel if more specs than this
 
-# Ladda config för att avgöra timeouts
+# Load config to determine timeouts
 RALPH_CONFIG="$HOME/.ralph-vm"
 if [ -f "$RALPH_CONFIG" ]; then
     source "$RALPH_CONFIG"
 fi
 
-# Justera timeouts baserat på Claude-mode
+# Adjust timeouts based on Claude mode
 CLAUDE_MODE="${CLAUDE_VM_MODE:-${CLAUDE_LOCAL_MODE:-max}}"
 if [ "$CLAUDE_MODE" = "api" ]; then
-    TIMEOUT=900       # 15 min för API (snabbare)
-    PARALLEL_MAX=5    # Fler parallella för API
+    TIMEOUT=900 # 15 min for API (faster)
+    PARALLEL_MAX=5 # More parallels for API
     SUPERVISOR_TIMEOUT=120
 else
-    TIMEOUT=1800      # 30 min för MAX (kan vara långsammare)
-    PARALLEL_MAX=2    # Start med 2, dynamiskt justerat
+    TIMEOUT=1800 # 30 min for MAX (can be slower)
+    PARALLEL_MAX=2 # Start with 2, dynamically adjusted
     SUPERVISOR_TIMEOUT=300
 fi
 
 # =============================================================================
-# DYNAMIC PARALLEL SCALING - Justera antal processer baserat på resurser
+# DYNAMIC PARALLEL SCALING - Adjust number of processes based on resources
 # =============================================================================
 get_available_ram_gb() {
-    # Returnerar ledigt RAM i GB
+    # Returns available RAM in GB
     free -g 2>/dev/null | awk '/^Mem:/ {print $7}' || echo "4"
 }
 
@@ -84,7 +84,7 @@ get_cpu_cores() {
 }
 
 get_cpu_load() {
-    # Returnerar 1-min load average
+    # Returns 1-min load average
     uptime | awk -F'load average:' '{print $2}' | cut -d',' -f1 | tr -d ' ' || echo "1"
 }
 
@@ -93,19 +93,19 @@ calculate_optimal_parallel() {
     local cpu_cores=$(get_cpu_cores)
     local cpu_load=$(get_cpu_load)
 
-    # Varje Claude-process behöver ~500MB RAM och lite CPU
-    local ram_based_max=$((available_ram * 2))  # 2 processer per GB ledigt
+    # Each Claude process needs ~500MB RAM and some CPU
+    local ram_based_max=$((available_ram * 2)) # 2 processes per GB available
 
-    # CPU-baserad: max cores - current load, minst 1
-    local load_int=${cpu_load%.*}  # Ta bort decimaler
+    # CPU based: max cores - current load, minimum 1
+    local load_int=${cpu_load%.*} # Remove decimals
     local cpu_based_max=$((cpu_cores - load_int))
     [ $cpu_based_max -lt 1 ] && cpu_based_max=1
 
-    # Ta det lägsta av RAM och CPU
+    # Take the lowest of RAM and CPU
     local optimal=$ram_based_max
     [ $cpu_based_max -lt $optimal ] && optimal=$cpu_based_max
 
-    # Begränsa till 1-6 processer
+    # Limit to 1-6 processes
     [ $optimal -lt 1 ] && optimal=1
     [ $optimal -gt 6 ] && optimal=6
 
@@ -117,7 +117,7 @@ maybe_scale_parallel() {
     local new_max=$(calculate_optimal_parallel)
 
     if [ $new_max -ne $PARALLEL_MAX ]; then
-        log "${CYAN}📊 Dynamisk skalning: $PARALLEL_MAX → $new_max (RAM: $(get_available_ram_gb)GB, CPU load: $(get_cpu_load))${NC}"
+        log "${CYAN}📊 Dynamic scaling: $PARALLEL_MAX → $new_max (RAM: $(get_available_ram_gb)GB, CPU load: $(get_cpu_load))${NC}"
         PARALLEL_MAX=$new_max
     fi
 }
@@ -132,8 +132,8 @@ BACKUP_DIR="${HOME}/ralph-backups"
 RATE_LIMIT_LOG="${HOME}/ralph-rate-limits.log"
 TOKEN_LOG="${HOME}/ralph-tokens.log"
 WORKTREE_BASE="${HOME}/ralph-worktrees"
-PROGRESS_FILE="progress.txt"  # Short-term memory (Ryan Carson)
-CHECKSUM_DIR=".spec-checksums"  # Track completed specs
+PROGRESS_FILE="progress.txt" # Short-term memory (Ryan Carson)
+CHECKSUM_DIR=".spec-checksums" # Track completed specs
 
 # Markers
 COMPLETION_MARKER="<promise>DONE</promise>"
@@ -144,7 +144,7 @@ NTFY_TOPIC="${NTFY_TOPIC:-}"
 # Git
 MAIN_BRANCH="main"
 
-# Färger
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -154,7 +154,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 # =============================================================================
-# HJÄLPFUNKTIONER
+# HELP FUNCTIONS
 # =============================================================================
 log() {
     echo -e "[$(date +%H:%M:%S)] $1"
@@ -169,13 +169,13 @@ notify() {
 }
 
 # =============================================================================
-# EPIC TRACKING - Dynamiskt läser IMPLEMENTATION_PLAN.md
+# EPIC TRACKING - Dynamically reads IMPLEMENTATION_PLAN.md
 # =============================================================================
 CURRENT_EPIC=""
 CURRENT_EPIC_NAME=""
 PLAN_FILE=""
 
-# Hitta IMPLEMENTATION_PLAN.md
+# Find IMPLEMENTATION_PLAN.md
 find_plan_file() {
     if [ -f "docs/IMPLEMENTATION_PLAN.md" ]; then
         echo "docs/IMPLEMENTATION_PLAN.md"
@@ -186,15 +186,15 @@ find_plan_file() {
     fi
 }
 
-# Hämta alla epics som associativ array-liknande output
-# Format: E1|Projektsetup & Databas
+# Get all epics as associative array-like output
+# Format: E1|Project setup & Database
 get_all_epics() {
     local plan_file=$(find_plan_file)
     if [ -z "$plan_file" ]; then
         return
     fi
 
-    # Hitta epic-tabellen och extrahera E1, E2, etc med namn
+    # Find the epic table and extract E1, E2, etc by name
     grep -E "^\| *E[0-9]+ *\|" "$plan_file" 2>/dev/null | while read -r line; do
         local epic_id=$(echo "$line" | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}')
         local epic_name=$(echo "$line" | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $3); print $3}')
@@ -202,10 +202,10 @@ get_all_epics() {
     done
 }
 
-# Hitta vilken epic en task tillhör baserat på task-id eller beskrivning
-# Läser sektioner som: ### Kritisk (E1: Projektsetup & Databas)
+# Find which epic a task belongs to based on task id or description
+# Reads sections like: ### Critical (E1: Project Setup & Database)
 get_epic_for_task() {
-    local task_search="$1"  # Kan vara task-id (T1.1) eller nyckelord
+    local task_search="$1" # Can be task id (T1.1) or keyword
     local plan_file=$(find_plan_file)
 
     if [ -z "$plan_file" ]; then
@@ -213,19 +213,19 @@ get_epic_for_task() {
         return
     fi
 
-    # Hitta sektionen som innehåller tasken
-    # Sektioner ser ut som: ### Kritisk (E1: Projektsetup & Databas)
+    # Find the section containing the bag
+    # Sections look like: ### Critical (E1: Project Setup & Database)
     local current_epic=""
     local current_epic_name=""
 
     while IFS= read -r line; do
-        # Kolla om det är en epic-sektion
+        # Check if it is an epic section
         if echo "$line" | grep -qE "^###.*\(E[0-9]+:"; then
             current_epic=$(echo "$line" | grep -oE "E[0-9]+" | head -1)
             current_epic_name=$(echo "$line" | sed 's/.*(\(E[0-9]*: *\)\(.*\))/\2/' | sed 's/)$//')
         fi
 
-        # Kolla om tasken finns på denna rad
+        # Check if the bag is on this line
         if echo "$line" | grep -qi "$task_search"; then
             if [ -n "$current_epic" ]; then
                 echo "$current_epic|$current_epic_name"
@@ -237,8 +237,8 @@ get_epic_for_task() {
     echo ""
 }
 
-# Matcha spec-fil mot task i planen
-# Försöker matcha spec-namn mot task-beskrivningar
+# Match spec file against task in plan
+# Trying to match spec names against task descriptions
 match_spec_to_epic() {
     local spec_name="$1"
     local plan_file=$(find_plan_file)
@@ -248,7 +248,7 @@ match_spec_to_epic() {
         return
     fi
 
-    # Strategi 1: Exakt task-id match (om spec heter t.ex. "T1.1-setup")
+    # Strategy 1: Exact task-id match (if spec is named e.g. "T1.1-setup")
     if echo "$spec_name" | grep -qE "^T[0-9]+\.[0-9]+"; then
         local task_id=$(echo "$spec_name" | grep -oE "^T[0-9]+\.[0-9]+")
         local result=$(get_epic_for_task "$task_id")
@@ -258,21 +258,21 @@ match_spec_to_epic() {
         fi
     fi
 
-    # Strategi 2: Nyckelord-match
-    # Ta bort siffror och bindestreck, matcha mot task-beskrivningar
+    # Strategy 2: Keyword match
+    # Remove numbers and hyphens, match against task descriptions
     local keywords=$(echo "$spec_name" | sed 's/^[0-9]*-//' | tr '-' ' ')
 
     local current_epic=""
     local current_epic_name=""
 
     while IFS= read -r line; do
-        # Kolla om det är en epic-sektion
+        # Check if it is an epic section
         if echo "$line" | grep -qE "^###.*\(E[0-9]+:"; then
             current_epic=$(echo "$line" | grep -oE "E[0-9]+" | head -1)
             current_epic_name=$(echo "$line" | sed 's/.*E[0-9]*: *//' | sed 's/)$//' | sed 's/ *$//')
         fi
 
-        # Fuzzy match: kolla om några nyckelord finns i task-beskrivningen
+        # Fuzzy match: check if any keywords are in the task description
         for keyword in $keywords; do
             if [ ${#keyword} -gt 3 ] && echo "$line" | grep -qi "$keyword"; then
                 if [ -n "$current_epic" ]; then
@@ -283,10 +283,10 @@ match_spec_to_epic() {
         done
     done < "$plan_file"
 
-    # Strategi 3: Nummer-baserad fallback
+    # Strategy 3: Number-based fallback
     local spec_num=$(echo "$spec_name" | grep -oE "^[0-9]+" | sed 's/^0*//')
     if [ -n "$spec_num" ]; then
-        # Anta att spec 01-03 är E1, 04-06 är E2, etc (fallback)
+        # Assume spec 01-03 is E1, 04-06 is E2, etc (fallback)
         local epic_num=$(( (spec_num - 1) / 3 + 1 ))
         local fallback_epic="E$epic_num"
         local fallback_name=$(grep -E "^\| *$fallback_epic *\|" "$plan_file" 2>/dev/null | head -1 | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $3); print $3}')
@@ -299,7 +299,7 @@ match_spec_to_epic() {
     echo ""
 }
 
-# Notifiera om epic-byte
+# Notify about epic byte
 notify_epic_change() {
     local spec_name="$1"
 
@@ -313,13 +313,13 @@ notify_epic_change() {
     local new_epic_name=$(echo "$epic_info" | cut -d'|' -f2)
 
     if [ "$new_epic" != "$CURRENT_EPIC" ]; then
-        # Avsluta förra epic om det fanns
+        # Exit last epic if it existed
         if [ -n "$CURRENT_EPIC" ] && [ -n "$CURRENT_EPIC_NAME" ]; then
-            notify "🎉 $CURRENT_EPIC: $CURRENT_EPIC_NAME - Klar!" "default"
-            log "${GREEN}🎉 $CURRENT_EPIC: $CURRENT_EPIC_NAME - Klar!${NC}"
+            notify "🎉 $CURRENT_EPIC: $CURRENT_EPIC_NAME - Done!" "default"
+            log "${GREEN}🎉 $CURRENT_EPIC: $CURRENT_EPIC_NAME - Ready!${NC}"
         fi
 
-        # Starta ny epic
+        # Start new epic
         CURRENT_EPIC="$new_epic"
         CURRENT_EPIC_NAME="$new_epic_name"
 
@@ -328,21 +328,21 @@ notify_epic_change() {
     fi
 }
 
-# Notifiera task-klar (inkluderar epic-info)
+# Notify task-done (includes epic info)
 notify_task_done() {
     local spec_name="$1"
 
     if [ -n "$CURRENT_EPIC" ] && [ -n "$CURRENT_EPIC_NAME" ]; then
         notify "✅ $CURRENT_EPIC: $spec_name" "low"
     else
-        notify "✅ Klar: $spec_name" "low"
+        notify "✅ Clear: $spec_name" "low"
     fi
 }
 
 # =============================================================================
 # STACK DETECTION & TEMPLATE HOOKS
 # =============================================================================
-# Detekterar vilken stack som används baserat på projektfiler
+# Detects which stack is used based on project files
 detect_stack() {
     local project_dir="${1:-.}"
 
@@ -354,7 +354,7 @@ detect_stack() {
         fi
     fi
 
-    # React + Vite (utan Supabase)
+    # React + Vite (without Supabase)
     if [ -f "$project_dir/vite.config.ts" ] || [ -f "$project_dir/vite.config.js" ]; then
         if grep -q "react" "$project_dir/package.json" 2>/dev/null; then
             echo "react-vite"
@@ -378,39 +378,39 @@ detect_stack() {
     echo "unknown"
 }
 
-# Initiera stack - anropar template's setup.sh
+# Initialize stack - call template's setup.sh
 init_stack() {
     local project_dir="${1:-.}"
 
     CURRENT_STACK=$(detect_stack "$project_dir")
     STACK_TEMPLATE_DIR="$RALPH_DIR/templates/stacks/$CURRENT_STACK"
 
-    log "${CYAN}Stack detekterad: $CURRENT_STACK${NC}"
+    log "${CYAN}Stack detected: $CURRENT_STACK${NC}"
 
     if [ -d "$STACK_TEMPLATE_DIR" ]; then
         log "${CYAN}Template: $STACK_TEMPLATE_DIR${NC}"
 
-        # Kopiera CLAUDE.md om det saknas i projektet
+        # Copy CLAUDE.md if it is missing in the project
         if [ -f "$STACK_TEMPLATE_DIR/CLAUDE.md" ] && [ ! -f "$project_dir/CLAUDE.md" ]; then
             cp "$STACK_TEMPLATE_DIR/CLAUDE.md" "$project_dir/"
-            log "${GREEN}Kopierade stack CLAUDE.md${NC}"
+            log "${GREEN}Copied stack CLAUDE.md${NC}"
         fi
 
-        # Kör setup.sh om det finns
+        # Run setup.sh if it exists
         if [ -x "$STACK_TEMPLATE_DIR/scripts/setup.sh" ]; then
-            log "${BLUE}Kör stack setup...${NC}"
+            log "${BLUE}Run stack setup...${NC}"
             if ! "$STACK_TEMPLATE_DIR/scripts/setup.sh" "$project_dir"; then
-                log "${RED}Setup FAILED - kan inte fortsätta${NC}"
-                log "${YELLOW}Fixa problemen ovan och kör igen${NC}"
+                log "${RED}Setup FAILED - cannot continue${NC}"
+                log "${YELLOW}Fix the problems above and run again${NC}"
                 exit 1
             fi
         fi
     else
-        log "${YELLOW}Ingen template för stack: $CURRENT_STACK${NC}"
+        log "${YELLOW}No template for stack: $CURRENT_STACK${NC}"
     fi
 }
 
-# Anropa stack hook
+# Call stack hook
 call_stack_hook() {
     local hook_name="$1"
     local project_dir="${2:-.}"
@@ -426,7 +426,7 @@ call_stack_hook() {
     if [ -x "$hook_script" ]; then
         log "${CYAN}Hook: $hook_name${NC}"
         "$hook_script" "$project_dir" "${extra_args[@]}" || {
-            log "${YELLOW}Hook $hook_name misslyckades${NC}"
+            log "${YELLOW}Hook $hook_name failed${NC}"
             return 1
         }
     fi
@@ -434,13 +434,13 @@ call_stack_hook() {
     return 0
 }
 
-# Kör stack verifiering med self-healing
+# Run stack verification with self-healing
 run_stack_verify() {
     local project_dir="${1:-.}"
     local max_heal_attempts=3
     local heal_attempt=0
 
-    # Säkerställ dependencies först
+    # Verify dependencies first
     (cd "$project_dir" && ensure_dependencies) || true
 
     while [ $heal_attempt -lt $max_heal_attempts ]; do
@@ -450,7 +450,7 @@ run_stack_verify() {
         local verify_exit=0
 
         if [ -z "$STACK_TEMPLATE_DIR" ] || [ ! -d "$STACK_TEMPLATE_DIR" ]; then
-            # Fallback: kör npm run build
+            # Fallback: run npm run build
             if [ -f "$project_dir/package.json" ]; then
                 log "${BLUE}Fallback verify: npm run build (attempt $heal_attempt/$max_heal_attempts)${NC}"
                 verify_output=$((cd "$project_dir" && npm run build) 2>&1) || verify_exit=$?
@@ -461,40 +461,40 @@ run_stack_verify() {
             local verify_script="$STACK_TEMPLATE_DIR/scripts/verify.sh"
 
             if [ -x "$verify_script" ]; then
-                log "${CYAN}═══ STACK VERIFIERING (attempt $heal_attempt/$max_heal_attempts) ═══${NC}"
+                log "${CYAN}═══ STACK VERIFICATION (attempt $heal_attempt/$max_heal_attempts) ═══${NC}"
                 verify_output=$("$verify_script" "$project_dir" 2>&1) || verify_exit=$?
             else
                 return 0
             fi
         fi
 
-        # Om lyckades, returnera OK
+        # If successful, return OK
         if [ $verify_exit -eq 0 ]; then
-            log "${GREEN}Stack verifiering OK${NC}"
+            log "${GREEN}Stack verifying OK${NC}"
             return 0
         fi
 
-        # Misslyckades - försök self-heal
-        log "${RED}Stack verifiering FAILED${NC}"
+        # Failed - try self-heal
+        log "${RED}Stack verification FAILED${NC}"
         echo "$verify_output" | tail -20
 
-        # Försök self-heal
+        # Try self-heal
         if try_selfheal "$verify_output"; then
-            log "${CYAN}Försöker igen efter self-heal...${NC}"
+            log "${CYAN}Trying again for self-heal...${NC}"
             continue
         else
-            # Inget att heala - ge upp
-            log "${RED}Ingen self-heal möjlig${NC}"
+            # Nothing to heal - give up
+            log "${RED}No self-heal possible${NC}"
             return 1
         fi
     done
 
-    log "${RED}Max self-heal försök ($max_heal_attempts) - ger upp${NC}"
+    log "${RED}Max self-heal attempts ($max_heal_attempts) - gives up${NC}"
     return 1
 }
 
 # =============================================================================
-# CHECKSUM TRACKING - Skippa redan körda specs
+# CHECKSUM TRACKING - Skip already running specs
 # =============================================================================
 spec_checksum() {
     local spec_file="$1"
@@ -513,10 +513,10 @@ is_spec_already_done() {
         local new_checksum=$(spec_checksum "$spec_file")
 
         if [ "$old_checksum" = "$new_checksum" ]; then
-            return 0  # true - redan körts med samma innehåll
+            return 0 # true - already run with same content
         fi
     fi
-    return 1  # false - ny eller ändrad
+    return 1 # false - new or modified
 }
 
 save_spec_checksum() {
@@ -548,7 +548,7 @@ check_context_budget() {
     local usage_percent=$((current_tokens * 100 / max_tokens))
 
     if [ $usage_percent -gt 80 ]; then
-        log "${RED}⚠️ Context: $usage_percent% - nära gränsen!${NC}"
+        log "${RED}⚠️ Context: $usage_percent% - near limit!${NC}"
         return 1
     fi
     return 0
@@ -586,7 +586,7 @@ log_rate_limit() {
 }
 
 # =============================================================================
-# SELF-HEALING: Detektera och fixa saknade dependencies
+# SELF-HEALING: Detect and fix missing dependencies
 # =============================================================================
 SELFHEAL_PATTERNS=(
     # Pattern|Fix command|Description
@@ -603,7 +603,7 @@ SELFHEAL_PATTERNS=(
     "ERR_MODULE_NOT_FOUND|npm install|Missing ES module"
 )
 
-# Försök self-heal baserat på error output
+# Try self-heal based on error output
 try_selfheal() {
     local error_output="$1"
     local healed=false
@@ -616,46 +616,46 @@ try_selfheal() {
         local description=$(echo "$pattern_entry" | cut -d'|' -f3)
 
         if echo "$error_output" | grep -qiE "$pattern"; then
-            log "${YELLOW}🔧 Detekterade: $description${NC}"
-            log "${BLUE}   Fix: $fix_cmd${NC}"
+            log "${YELLOW}🔧 Detected: $description${NC}"
+            log "${BLUE} Fix: $fix_cmd${NC}"
 
-            # Kör fix-kommandot
+            # Run the fix command
             if eval "$fix_cmd" 2>&1; then
-                log "${GREEN}✅ Self-heal lyckades: $description${NC}"
+                log "${GREEN}✅ Self-heal successful: $description${NC}"
                 notify "🔧 Self-heal: $description"
                 healed=true
             else
-                log "${RED}❌ Self-heal misslyckades: $description${NC}"
+                log "${RED}❌ Self-heal failed: $description${NC}"
                 notify "❌ Self-heal failed: $description" "high"
             fi
         fi
     done
 
     if [ "$healed" = true ]; then
-        return 0  # Something was healed, retry build
+        return 0 # Something was healed, retry build
     else
-        return 1  # Nothing to heal
+        return 1 # Nothing to heal
     fi
 }
 
-# Kör npm install om package.json finns men node_modules saknas
+# Run npm install if package.json exists but node_modules is missing
 ensure_dependencies() {
     if [ -f "package.json" ] && [ ! -d "node_modules" ]; then
-        log "${YELLOW}🔧 node_modules saknas - kör npm install${NC}"
+        log "${YELLOW}🔧 node_modules missing - run npm install${NC}"
         npm install 2>&1 || {
-            log "${RED}npm install misslyckades${NC}"
+            log "${RED}npm install failed${NC}"
             return 1
         }
-        log "${GREEN}✅ Dependencies installerade${NC}"
+        log "${GREEN}✅ Dependencies installed${NC}"
     fi
     return 0
 }
 
 # =============================================================================
-# CLEANUP: Locks, cache, processer
+# CLEANUP: Locks, cache, processes
 # =============================================================================
 cleanup_locks() {
-    log "${BLUE}Rensar locks...${NC}"
+    log "${BLUE}Cleans locks...${NC}"
 
     # Next.js
     rm -rf .next/lock 2>/dev/null || true
@@ -666,7 +666,7 @@ cleanup_locks() {
     # Node modules cache
     rm -rf node_modules/.cache/.lock 2>/dev/null || true
 
-    # Döda hängande builds
+    # Kill hanging builds
     pkill -f "next build" 2>/dev/null || true
     pkill -f "turbo build" 2>/dev/null || true
 }
@@ -685,12 +685,12 @@ backup_project() {
 # MEMORY LAYER (Ryan Carson pattern)
 # =============================================================================
 
-# Läs progress.txt för att inkludera i prompten
+# Read progress.txt to include in prompt
 get_progress_context() {
     if [ -f "$PROGRESS_FILE" ]; then
         local lines=$(wc -l < "$PROGRESS_FILE")
         if [ "$lines" -gt 100 ]; then
-            # Ta bara senaste 100 raderna för att spara context
+            # Take only last 100 lines to save context
             tail -100 "$PROGRESS_FILE"
         else
             cat "$PROGRESS_FILE"
@@ -698,7 +698,7 @@ get_progress_context() {
     fi
 }
 
-# Logga learnings till progress.txt (short-term memory)
+# Log learnings to progress.txt (short-term memory)
 log_progress() {
     local spec_name="$1"
     local iteration="$2"
@@ -711,43 +711,43 @@ log_progress() {
 
 EOF
 
-    # Be Claude logga sina learnings
-    echo "Du har just avslutat iteration $iteration av $spec_name.
-Skriv 2-3 korta punkter om:
-1. Vad implementerades
-2. Eventuella gotchas eller patterns du upptäckte
-3. Filer som ändrades
+    # Ask Claude to log his learnings
+    echo "You have just finished iteration $iteration of $spec_name.
+Write 2-3 short paragraphs about:
+1. What was implemented
+2. any gotchas or patterns you discovered
+3. files that were changed
 
-Svara ENDAST med punkterna, inget annat." | \
+Answer ONLY with the bullet points, nothing else." | \
         timeout 60 claude --dangerously-skip-permissions 2>/dev/null >> "$PROGRESS_FILE" || true
 
-    log "${CYAN}Progress loggad till $PROGRESS_FILE${NC}"
+    log "${CYAN}Progress logged to $PROGRESS_FILE${NC}"
 }
 
-# Uppdatera CLAUDE.md med långsiktiga learnings (long-term memory)
+# Update CLAUDE.md with long-term learnings (long-term memory)
 update_claude_md() {
     local spec_name="$1"
 
-    # Kolla om CLAUDE.md finns
+    # Check if CLAUDE.md exists
     if [ ! -f "CLAUDE.md" ]; then
         return 0
     fi
 
-    log "${CYAN}Uppdaterar CLAUDE.md med learnings...${NC}"
+    log "${CYAN}Updating CLAUDE.md with learnings...${NC}"
 
-    echo "Du har just slutfört $spec_name.
-Om du upptäckte nya mönster, gotchas, eller viktiga konventioner som framtida utvecklare borde veta:
-1. Läs CLAUDE.md
-2. Om det finns något viktigt att lägga till under ## Learnings eller liknande sektion, gör det
-3. Håll det kort och relevant
-4. Om inget viktigt att lägga till, gör ingenting
+    echo "You have just completed $spec_name.
+If you discovered new patterns, gotchas, or important conventions that future developers should know:
+1. read CLAUDE.md
+2. If there is something important to add under the ## Learnings or similar section, do so
+3. Keep it short and relevant
+4. If nothing important to add, do nothing
 
-Svara inte med något - bara uppdatera filen om det behövs." | \
+Don't reply with anything - just update the file if necessary." | \
         timeout $SUPERVISOR_TIMEOUT claude --dangerously-skip-permissions 2>/dev/null || true
 }
 
 # =============================================================================
-# SÄKERHET: Farliga kommandon
+# SECURITY: Dangerous commands
 # =============================================================================
 check_dangerous_commands() {
     local diff_content
@@ -764,14 +764,14 @@ check_dangerous_commands() {
 
     for pattern in "${dangerous[@]}"; do
         if echo "$diff_content" | grep -qF "$pattern"; then
-            log "${RED}🚨 FARLIGT KOMMANDO: $pattern${NC}"
+            log "${RED}🚨 DANGEROUS COMMAND: $pattern${NC}"
             return 1
         fi
     done
 
-    # curl/wget pipe till bash
+    # curl/wget pipe to bash
     if echo "$diff_content" | grep -qE "curl.*\|.*bash|wget.*\|.*bash"; then
-        log "${RED}🚨 FARLIGT: curl/wget pipe till bash${NC}"
+        log "${RED}🚨 DANGEROUS: curl/wget pipe to bash${NC}"
         return 1
     fi
 
@@ -779,18 +779,18 @@ check_dangerous_commands() {
 }
 
 # =============================================================================
-# SÄKERHET: Secrets scanning
+# SECURITY: Secrets scanning
 # =============================================================================
 scan_secrets() {
     local secrets_found=0
 
-    # .env filer
+    # .env files
     if git diff --cached --name-only 2>/dev/null | grep -qE "^\.env|\.env\.|config/\.env"; then
-        log "${RED}🚨 .env fil staged!${NC}"
+        log "${RED}🚨 .env file staged!${NC}"
         secrets_found=1
     fi
 
-    # API-nycklar
+    # API keys
     local patterns=(
         "sk-ant-[a-zA-Z0-9]{20,}"
         "sk-[a-zA-Z0-9]{40,}"
@@ -815,17 +815,17 @@ scan_secrets() {
 # =============================================================================
 run_tests() {
     if [ ! -f "package.json" ]; then
-        log "${YELLOW}Inget package.json - skippar tester${NC}"
+        log "${YELLOW}No package.json - skipping tester${NC}"
         return 0
     fi
 
     if ! grep -q '"test"' package.json 2>/dev/null; then
-        log "${YELLOW}⚠️ Inget test-script i package.json${NC}"
-        # Returnera OK men logga varning - supervisor checks lägger till tester
+        log "${YELLOW}⚠️ No test script in package.json${NC}"
+        # Return OK but log warning - supervisor checks adding tests
         return 0
     fi
 
-    log "Kör tester..."
+    log "Running tests..."
     local output
     local exit_code=0
     output=$(npm test 2>&1) || exit_code=$?
@@ -834,46 +834,46 @@ run_tests() {
         echo "$output" | tail -3
         return 0
     else
-        log "${RED}Tester misslyckades:${NC}"
+        log "${RED}Tester failed:${NC}"
         echo "$output" | grep -A 3 -B 1 "FAIL\|Error\|✗" | head -20
         return 1
     fi
 }
 
 # =============================================================================
-# SUPERVISOR: Kvalitetskontroller
+# SUPERVISOR: Quality controls
 # =============================================================================
 run_supervisor_checks() {
     log "${CYAN}═══ SUPERVISOR CHECKS ═══${NC}"
 
-    # Check 1: Tester - kör och fixa tills de passerar
-    log "${YELLOW}Check 1: Tester${NC}"
+    # Check 1: Tests - run and fix until they pass
+    log "${YELLOW}Check 1: Tests${NC}"
     local test_attempts=0
     local max_test_attempts=3
 
     while [ $test_attempts -lt $max_test_attempts ]; do
         ((test_attempts++))
-        log "  Test attempt $test_attempts/$max_test_attempts"
+        log " Test attempt $test_attempts/$max_test_attempts"
 
-        # Kör tester
+        # Run tester
         local test_output
         local test_exit=0
         test_output=$(npm test 2>&1) || test_exit=$?
 
         if [ $test_exit -eq 0 ]; then
-            log "${GREEN}  ✅ Alla tester passerar${NC}"
+            log "${GREEN} ✅ All tests pass${NC}"
             break
         else
-            log "${RED}  ❌ Tester failar${NC}"
+            log "${RED} ❌ Tester fails${NC}"
             echo "$test_output" | tail -20
 
             if [ $test_attempts -lt $max_test_attempts ]; then
-                log "  Ber Claude fixa..."
-                local fix_prompt="Testerna failar med följande output:
+                log " Ber Claude fixa..."
+                local fix_prompt="The tests fail with the following output:
 
 $test_output
 
-Fixa testerna så de passerar. Kör 'npm test' för att verifiera."
+Fix the tests so they pass. Run 'npm test' to verify."
 
                 echo "$fix_prompt" | timeout $((SUPERVISOR_TIMEOUT * 2)) claude --dangerously-skip-permissions 2>&1 || true
 
@@ -890,24 +890,24 @@ Fixa testerna så de passerar. Kör 'npm test' för att verifiera."
     tsc_output=$(npx tsc --noEmit 2>&1) || tsc_exit=$?
 
     if [ $tsc_exit -eq 0 ]; then
-        log "${GREEN}  ✅ TypeScript OK${NC}"
+        log "${GREEN} ✅ TypeScript OK${NC}"
     else
-        log "${RED}  ❌ TypeScript fel${NC}"
+        log "${RED} ❌ TypeScript error${NC}"
         echo "$tsc_output" | head -20
 
-        # Försök self-heal först (t.ex. tsc: not found)
+        # Try self-heal first (e.g. tsc: not found)
         if try_selfheal "$tsc_output"; then
-            log "  Försöker igen efter self-heal..."
+            log " Trying again after self-heal..."
             tsc_output=$(npx tsc --noEmit 2>&1) || tsc_exit=$?
             if [ $tsc_exit -eq 0 ]; then
-                log "${GREEN}  ✅ TypeScript OK efter self-heal${NC}"
+                log "${GREEN} ✅ TypeScript OK after self-heal${NC}"
             fi
         fi
 
-        # Om fortfarande fel, be Claude fixa
+        # If still error, ask Claude to fix
         if [ $tsc_exit -ne 0 ]; then
-            log "  Ber Claude fixa..."
-            echo "Fixa TypeScript-felen:
+            log " Tell Claude to fix..."
+            echo "Fix the TypeScript errors:
 
 $tsc_output" | timeout $((SUPERVISOR_TIMEOUT * 2)) claude --dangerously-skip-permissions 2>&1 || true
 
@@ -923,28 +923,28 @@ $tsc_output" | timeout $((SUPERVISOR_TIMEOUT * 2)) claude --dangerously-skip-per
     build_output=$(npm run build 2>&1) || build_exit=$?
 
     if [ $build_exit -eq 0 ]; then
-        log "${GREEN}  ✅ Build OK${NC}"
+        log "${GREEN} ✅ Build OK${NC}"
     else
-        log "${RED}  ❌ Build failar${NC}"
+        log "${RED} ❌ Build failar${NC}"
         echo "$build_output" | tail -20
 
-        # Försök self-heal först
+        # Try self-heal first
         if try_selfheal "$build_output"; then
-            log "  Försöker igen efter self-heal..."
+            log " Trying again after self-heal..."
             build_output=$(npm run build 2>&1) || build_exit=$?
             if [ $build_exit -eq 0 ]; then
-                log "${GREEN}  ✅ Build OK efter self-heal${NC}"
+                log "${GREEN} ✅ Build OK after self-heal${NC}"
             fi
         fi
 
-        # Om fortfarande fel, be Claude fixa
+        # If still error, ask Claude to fix
         if [ $build_exit -ne 0 ]; then
-            log "  Ber Claude fixa..."
+            log " Tell Claude to fix..."
             echo "Build failar:
 
 $build_output
 
-Fixa så projektet bygger." | timeout $((SUPERVISOR_TIMEOUT * 2)) claude --dangerously-skip-permissions 2>&1 || true
+Fix so the project builds." | timeout $((SUPERVISOR_TIMEOUT * 2)) claude --dangerously-skip-permissions 2>&1 || true
 
             git add -A 2>/dev/null || true
             git commit -m "Supervisor: fix build errors" 2>/dev/null || true
@@ -955,7 +955,7 @@ Fixa så projektet bygger." | timeout $((SUPERVISOR_TIMEOUT * 2)) claude --dange
 }
 
 # =============================================================================
-# KÖR EN SPEC
+# RUN A SPEC
 # =============================================================================
 run_single_spec() {
     local spec="$1"
@@ -967,26 +967,26 @@ run_single_spec() {
 
     log "${GREEN}=== $spec_name ===${NC}"
 
-    # Epic tracking - notifiera om ny epic
+    # Epic tracking - notify about new epic
     notify_epic_change "$spec_name"
 
-    # Checksum-check: skippa om redan kört med samma innehåll
+    # Checksum check: skip if already running with same content
     if is_spec_already_done "$spec"; then
-        log "${BLUE}⏭ Spec redan körd (samma checksum) - troligtvis implementerad${NC}"
-        log "  Skippar för att spara tokens"
+        log "${BLUE}⏭ Spec already run (same checksum) - probably implemented${NC}"
+        log " Skipping to save tokens"
         return 0
     fi
 
-    # Cleanup före
+    # Cleanup before
     cleanup_locks
 
-    # Läs spec och räkna tokens
+    # Read specs and count tokens
     local prompt=$(cat "$spec")
     local tokens=$(estimate_tokens "$prompt")
     log_tokens "$spec" "$tokens"
     log "Tokens: ~$tokens"
 
-    # Generera session ID för denna spec (för resume)
+    # Generate session ID for this spec (for resume)
     session_id=$(uuidgen 2>/dev/null || cat /proc/sys/kernel/random/uuid 2>/dev/null || echo "$(date +%s)-$$")
     log "Session ID: $session_id"
 
@@ -997,28 +997,28 @@ run_single_spec() {
         local exit_code=0
 
         if [ $attempt -eq 1 ]; then
-            # FÖRSTA KÖRNINGEN: Minimal prompt (liten context = bättre resultat)
-            # INGEN progress context - Claude läser koden själv
+            # FIRST RUN: Minimal prompt (small context = better result)
+            # NO progress context - Claude reads the code himself
 
             local full_prompt="$prompt
 
 ---
-När klar: skriv <promise>DONE</promise>
-Innan DONE: kör 'npm run build' och verifiera att det passerar."
+When done: type <promise>DONE</promise>
+Before DONE: run 'npm run build' and verify that it passes."
 
-            log "${CYAN}Startar ny session...${NC}"
+            log "${CYAN}Starting new session...${NC}"
             output=$(echo "$full_prompt" | timeout $TIMEOUT claude --session-id "$session_id" --dangerously-skip-permissions -p 2>&1) || exit_code=$?
 
         else
-            # RETRY: Resume session med bara felinformation (sparar tokens!)
-            local retry_prompt="VERIFIERING MISSLYCKADES!
+            # RETRY: Resume session with only error information (saves tokens!)
+            local retry_prompt="VERIFICATION FAILED!
 
 $error_context
 
-Fixa felen ovan. Kör 'npm run build' för att verifiera.
-Skriv <promise>DONE</promise> när bygget går igenom."
+Fix the errors above. Run 'npm run build' to verify.
+Write <promise>DONE</promise> when the build goes through."
 
-            log "${CYAN}Resumar session (sparar tokens)...${NC}"
+            log "${CYAN}Resuming session (saving tokens)...${NC}"
             output=$(echo "$retry_prompt" | timeout $TIMEOUT claude --resume "$session_id" --dangerously-skip-permissions -p 2>&1) || exit_code=$?
         fi
 
@@ -1027,36 +1027,36 @@ Skriv <promise>DONE</promise> när bygget går igenom."
         # Rate limit?
         if is_rate_limited "$output"; then
             log_rate_limit "Spec: $(basename "$spec")"
-            log "${YELLOW}Rate limit - väntar 2 min...${NC}"
-            notify "⏳ Rate limit - väntar"
+            log "${YELLOW}Rate limit - waiting 2 min...${NC}"
+            notify "⏳ Rate limit - waiting"
             sleep 120
             continue
         fi
 
         # Auth error?
         if echo "$output" | grep -qi "401\|unauthorized"; then
-            log "${YELLOW}Auth-fel - väntar 1 min...${NC}"
+            log "${YELLOW}Auth error - waiting 1 min...${NC}"
             sleep 60
             continue
         fi
 
         # Timeout?
         if [ $exit_code -eq 124 ]; then
-            error_context="Timeout efter 30 min"
+            error_context="Timeout after 30 min"
             ((attempt++))
             continue
         fi
 
-        # Farliga kommandon?
+        # Dangerous commands?
         if ! check_dangerous_commands; then
-            log "${RED}🚨 FARLIGA KOMMANDON - STOPPAR${NC}"
-            notify "🚨 Farliga kommandon i $(basename "$spec")"
+            log "${RED}🚨 DANGEROUS COMMANDS - STOP${NC}"
+            notify "🚨 Dangerous commands in $(basename "$spec")"
             return 1
         fi
 
         # Git checkpoint
         if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-            # Kör post-create hook för nya filer
+            # Run post-create hook for new files
             local new_files=$(git status --porcelain 2>/dev/null | grep "^??" | cut -c4-)
             for new_file in $new_files; do
                 if [[ "$new_file" =~ \.(tsx|ts)$ ]]; then
@@ -1067,7 +1067,7 @@ Skriv <promise>DONE</promise> när bygget går igenom."
             git add -A
 
             if ! scan_secrets; then
-                log "${RED}🚨 SECRETS - STOPPAR${NC}"
+                log "${RED}🚨 SECRETS - STOP${NC}"
                 git reset HEAD . 2>/dev/null || true
                 return 1
             fi
@@ -1077,12 +1077,12 @@ Skriv <promise>DONE</promise> när bygget går igenom."
 
         # Completion marker?
         if echo "$output" | grep -q "$COMPLETION_MARKER"; then
-            log "${GREEN}✅ Completion marker hittad${NC}"
+            log "${GREEN}✅ Completion marker found${NC}"
 
-            # HÅRT KRAV: Verifiera med stack verify (build, tester, etc)
-            log "${CYAN}Verifierar med stack verify...${NC}"
+            # HARD REQUIREMENT: Verify with stack verify (build, tester, etc)
+            log "${CYAN}Verify with stack verify...${NC}"
 
-            # Fånga verify-output för att skicka till Claude vid retry
+            # Capture verify output to send to Claude on retry
             local verify_output
             verify_output=$(run_stack_verify "." 2>&1)
             local verify_exit=$?
@@ -1091,27 +1091,27 @@ Skriv <promise>DONE</promise> när bygget går igenom."
 
             if [ $verify_exit -eq 0 ]; then
                 log "${GREEN}✅ Stack verify OK${NC}"
-                # Spara checksum så vi skippar nästa gång
+                # Save checksum so we skip next time
                 save_spec_checksum "$spec"
-                # Notifiera task klar
+                # Notify task done
                 notify_task_done "$spec_name"
-                # Logga progress (short-term memory)
+                # Log progress (short-term memory)
                 log_progress "$(basename "$spec")" "$attempt" "SUCCESS"
-                # Auto-push till remote (triggar deploy)
+                # Auto-push to remote (triggers deploy)
                 if git remote get-url origin &>/dev/null; then
-                    log "${CYAN}Pushar till origin...${NC}"
-                    git push -u origin "$branch" 2>&1 || log "${YELLOW}Push failed (kanske redan uppe)${NC}"
+                    log "${CYAN}Push to origin...${NC}"
+                    git push -u origin "$branch" 2>&1 || log "${YELLOW}Push failed (maybe already up)${NC}"
                 fi
                 return 0
             else
-                log "${RED}❌ Stack verify FAILED - marker ignorerad${NC}"
-                # Trimma verify-output för att spara tokens (max 50 rader)
+                log "${RED}❌ Stack verify FAILED - marker ignored${NC}"
+                # Trim verify output to save tokens (max 50 lines)
                 local trimmed_output
                 trimmed_output=$(echo "$verify_output" | grep -E "(error|FAIL|❌|Error|failed)" | head -30)
                 if [ -z "$trimmed_output" ]; then
                     trimmed_output=$(echo "$verify_output" | tail -30)
                 fi
-                error_context="Build FAILED. Fel:
+                error_context="Build FAILED. Error:
 
 $trimmed_output"
                 ((attempt++))
@@ -1119,11 +1119,11 @@ $trimmed_output"
             fi
         fi
 
-        # INGEN "exit utan marker" - kräv explicit DONE + verify
-        # Om Claude avslutade utan marker, behandla som fel
+        # NO "exit without marker" - require explicit DONE + verify
+        # If Claude exited without chips, treat as error
         if [ $exit_code -eq 0 ]; then
-            log "${YELLOW}⚠️ Claude avslutade utan DONE marker${NC}"
-            error_context="Du avslutade utan att skriva <promise>DONE</promise>. Slutför uppgiften och skriv markern."
+            log "${YELLOW}⚠️ Claude exited without DONE marker${NC}"
+            error_context="You finished without writing <promise>DONE</promise>. Finish the task and write the marker."
             ((attempt++))
             continue
         fi
@@ -1133,12 +1133,12 @@ $trimmed_output"
         sleep 10
     done
 
-    log "${RED}❌ Max retries för $(basename "$spec")${NC}"
+    log "${RED}❌ Max retries for $(basename "$spec")${NC}"
     return 1
 }
 
 # =============================================================================
-# KÖR PARALLELLT (worktrees)
+# RUN PARALLEL (worktrees)
 # =============================================================================
 run_parallel() {
     local specs=("$@")
@@ -1147,23 +1147,23 @@ run_parallel() {
     local branches=()
     local running=0
 
-    log "${MAGENTA}=== PARALLEL MODE: ${#specs[@]} specs (max $PARALLEL_MAX samtidiga) ===${NC}"
+    log "${MAGENTA}=== PARALLEL MODE: ${#specs[@]} specs (max $PARALLEL_MAX concurrent) ===${NC}"
 
     mkdir -p "$WORKTREE_BASE"
 
     for spec in "${specs[@]}"; do
-        # Dynamisk skalning - kolla om vi kan köra fler
+        # Dynamic scaling - check if we can run more
         maybe_scale_parallel $running
 
-        # Vänta om vi nått max antal parallella
+        # Wait if we reached max number of parallel
         while [ $running -ge $PARALLEL_MAX ]; do
-            # Vänta på att någon blir klar
+            # Wait for someone to finish
             for i in "${!pids[@]}"; do
                 if ! kill -0 "${pids[$i]}" 2>/dev/null; then
                     wait "${pids[$i]}" || true
                     unset 'pids[$i]'
                     ((running--))
-                    # Kolla om vi kan skala upp efter att en blev klar
+                    # Check if we can scale up after one got done
                     maybe_scale_parallel $running
                     break
                 fi
@@ -1175,24 +1175,24 @@ run_parallel() {
         local branch="ralph-$spec_name-$TIMESTAMP"
         local worktree="$WORKTREE_BASE/$spec_name-$TIMESTAMP"
 
-        log "Skapar worktree: $spec_name"
+        log "Creating worktree: $spec_name"
 
-        # Skapa branch och worktree
+        # Create branch and worktree
         git branch "$branch" 2>/dev/null || true
         git worktree add "$worktree" "$branch" 2>/dev/null || true
 
-        # Kopiera spec
+        # Copy specs
         cp "$spec" "$worktree/"
 
         worktrees+=("$worktree")
         branches+=("$branch")
 
-        # Starta i bakgrunden
+        # Start in the background
         (
             cd "$worktree"
             local log_file="ralph-parallel.log"
 
-            # Kör spec
+            # Run specs
             if run_single_spec "$(basename "$spec")" "$branch" >> "$log_file" 2>&1; then
                 echo "SUCCESS" > .ralph-status
             else
@@ -1202,20 +1202,20 @@ run_parallel() {
         pids+=($!)
         ((running++))
 
-        log "  PID: ${pids[-1]} (running: $running/$PARALLEL_MAX)"
+        log " PID: ${pids[-1]} (running: $running/$PARALLEL_MAX)"
     done
 
-    # Vänta på alla
-    log "Väntar på ${#pids[@]} parallella specs..."
+    # Waiting for all
+    log "Waiting for ${#pids[@]} parallel specs..."
 
     local failed=0
     for i in "${!pids[@]}"; do
         wait "${pids[$i]}" || ((failed++))
-        log "Klar: $(basename "${worktrees[$i]}")"
+        log "Ready: $(basename "${worktrees[$i]}")"
     done
 
-    # Samla resultat och branches att merga
-    log "${CYAN}═══ PARALLELL RESULTAT ═══${NC}"
+    # Collect results and branches to merge
+    log "${CYAN}═══ PARALLEL RESULT ═══${NC}"
 
     local successful_branches=()
 
@@ -1232,26 +1232,26 @@ run_parallel() {
         fi
     done
 
-    # Cleanup worktrees FÖRE merge (frigör branches)
+    # Cleanup worktrees BEFORE merge (free branches)
     for worktree in "${worktrees[@]}"; do
         git worktree remove "$worktree" --force 2>/dev/null || true
     done
     git worktree prune 2>/dev/null || true
 
-    # Smart sekventiell merge av lyckade branches
+    # Smart sequential merge of successful branches
     if [ ${#successful_branches[@]} -gt 0 ]; then
-        log "${CYAN}Startar smart merge av ${#successful_branches[@]} branches...${NC}"
+        log "${CYAN}Starting smart merge of ${#successful_branches[@]} branches...${NC}"
         merge_branches_sequential "${successful_branches[@]}" || true
 
-        # Kör post-merge hook för att fixa integration
+        # Run post-merge hook to fix integration
         call_stack_hook "post-merge" "." || {
-            log "${YELLOW}Post-merge hook misslyckades${NC}"
+            log "${YELLOW}Post-merge hook failed${NC}"
         }
 
-        # Verifiera efter merge
+        # Verify post-merge
         run_stack_verify "." || {
-            log "${RED}Verifiering efter merge FAILED${NC}"
-            notify "⚠️ Verifiering failed efter parallell merge"
+            log "${RED}Post-merge verification FAILED${NC}"
+            notify "⚠️ Verification failed after parallel merge"
         }
     fi
 
@@ -1259,10 +1259,10 @@ run_parallel() {
 }
 
 # =============================================================================
-# AUTO-MERGE LOGIK
+# AUTO-MERGE LOGIC
 # =============================================================================
 
-# Filer som är säkra att auto-resolve med --theirs
+# Files that are safe to auto-resolve with --theirs
 AUTO_RESOLVE_PATTERNS=(
     "*.log"
     "ralph-parallel.log"
@@ -1273,7 +1273,7 @@ AUTO_RESOLVE_PATTERNS=(
     "*.snap"
 )
 
-# Filer som kräver manuell review vid konflikt
+# Files that require manual review in case of conflict
 MANUAL_REVIEW_PATTERNS=(
     "*.ts"
     "*.tsx"
@@ -1285,48 +1285,48 @@ MANUAL_REVIEW_PATTERNS=(
     "*.java"
 )
 
-# Kolla om fil matchar pattern
+# Check if file matches pattern
 file_matches_pattern() {
     local file="$1"
     local pattern="$2"
 
-    # Konvertera glob till regex
+    # Convert glob to regex
     local regex=$(echo "$pattern" | sed 's/\./\\./g' | sed 's/\*/.*?/g')
     echo "$file" | grep -qE "$regex"
 }
 
-# Kolla om konfliktfil är säker att auto-resolve
+# Check if conflict file is safe to auto-resolve
 is_safe_to_auto_resolve() {
     local file="$1"
 
     for pattern in "${AUTO_RESOLVE_PATTERNS[@]}"; do
         if file_matches_pattern "$file" "$pattern"; then
-            return 0  # Säker
+            return 0 # Safe
         fi
     done
 
-    # Kolla om det är test-fil
+    # Check if it is test file
     if echo "$file" | grep -qE "(__tests__|\.test\.|\.spec\.|test/|tests/)"; then
-        return 0  # Test-filer är säkra
+        return 0 # Test files are safe
     fi
 
-    return 1  # Inte säker
+    return 1 # Not secure
 }
 
-# Smart merge av en branch med konflikthantering
+# Smart merge of a branch with conflict handling
 merge_branch_smart() {
     local branch="$1"
     local branch_name=$(basename "$branch")
 
     log "${CYAN}Merging: $branch_name${NC}"
 
-    # Försök vanlig merge först
+    # Try plain merge first
     if git merge --no-ff "$branch" -m "Merge $branch_name" 2>/dev/null; then
         log "${GREEN}✅ Clean merge: $branch_name${NC}"
         return 0
     fi
 
-    # Konflikt - analysera filer
+    # Conflict - analyze files
     local conflict_files=$(git diff --name-only --diff-filter=U 2>/dev/null)
 
     if [ -z "$conflict_files" ]; then
@@ -1334,7 +1334,7 @@ merge_branch_smart() {
         return 0
     fi
 
-    log "${YELLOW}Konflikter i: $conflict_files${NC}"
+    log "${YELLOW}Conflicts in: $conflict_files${NC}"
 
     local has_source_conflict=false
     local resolved_count=0
@@ -1343,23 +1343,23 @@ merge_branch_smart() {
         [ -z "$file" ] && continue
 
         if is_safe_to_auto_resolve "$file"; then
-            log "  ${BLUE}Auto-resolve (theirs): $file${NC}"
+            log " ${BLUE}Auto-resolve (theirs): $file${NC}"
             git checkout --theirs "$file" 2>/dev/null || true
             git add "$file" 2>/dev/null || true
             ((resolved_count++))
         else
-            # Kolla om det är källkod
+            # Check if it is source code
             for pattern in "${MANUAL_REVIEW_PATTERNS[@]}"; do
                 if file_matches_pattern "$file" "$pattern"; then
-                    log "  ${RED}⚠️ Källkod-konflikt: $file${NC}"
+                    log " ${RED}⚠️ Source code conflict: $file${NC}"
                     has_source_conflict=true
                     break
                 fi
             done
 
-            # Om inte källkod, auto-resolve ändå
+            # If not source code, auto-resolve anyway
             if [ "$has_source_conflict" = false ]; then
-                log "  ${BLUE}Auto-resolve (theirs): $file${NC}"
+                log " ${BLUE}Auto-resolve (theirs): $file${NC}"
                 git checkout --theirs "$file" 2>/dev/null || true
                 git add "$file" 2>/dev/null || true
                 ((resolved_count++))
@@ -1367,27 +1367,27 @@ merge_branch_smart() {
         fi
     done <<< "$conflict_files"
 
-    # Om källkod-konflikt, auto-resolve med theirs och notifiera
+    # If source code conflict, auto-resolve with theirs and notify
     if [ "$has_source_conflict" = true ]; then
-        log "${YELLOW}⚠️ Källkod-konflikt - auto-resolve med theirs${NC}"
-        notify "⚠️ Källkod-konflikt i $branch_name - auto-resolved"
+        log "${YELLOW}⚠️ Source code conflict - auto-resolve with theirs${NC}"
+        notify "⚠️ Source code conflict in $branch_name - auto-resolved"
 
-        # Auto-resolve alla konflikter med theirs
+        # Auto-resolve all conflicts with theirs
         git checkout --theirs . 2>/dev/null || true
         git add -A 2>/dev/null || true
         ((resolved_count++))
     fi
 
-    # Alla konflikter lösta automatiskt
+    # All conflicts resolved automatically
     if [ $resolved_count -gt 0 ]; then
         git commit -m "Merge $branch_name (auto-resolved $resolved_count conflicts)" 2>/dev/null || true
-        log "${GREEN}✅ Merge med auto-resolve: $branch_name ($resolved_count konflikter)${NC}"
+        log "${GREEN}✅ Merge with auto-resolve: $branch_name ($resolved_count conflicts)${NC}"
     fi
 
     return 0
 }
 
-# Sekventiell merge av alla branches med smart konflikthantering
+# Sequential merge of all branches with smart conflict handling
 merge_branches_sequential() {
     local branches=("$@")
     local merged=0
@@ -1395,12 +1395,12 @@ merge_branches_sequential() {
     local failed_branches=()
 
     log "${CYAN}═══ SMART SEQUENTIAL MERGE ═══${NC}"
-    log "Branches att merga: ${#branches[@]}"
+    log "Branches to merge: ${#branches[@]}"
 
-    # Checkout main först
+    # Checkout main first
     git checkout "$MAIN_BRANCH" 2>/dev/null || true
 
-    # Sortera branches - test/compliance-branches sist (de ändrar oftast testfiler)
+    # Sort branches - test/compliance-branches last (they usually change test files)
     local sorted_branches=()
     local test_branches=()
 
@@ -1412,23 +1412,23 @@ merge_branches_sequential() {
         fi
     done
 
-    # Lägg till test-branches sist
+    # Add test-branches last
     sorted_branches+=("${test_branches[@]}")
 
-    log "Merge-ordning:"
+    log "Merge order:"
     for i in "${!sorted_branches[@]}"; do
-        log "  $((i+1)). ${sorted_branches[$i]}"
+        log "$((i+1)). ${sorted_branches[$i]}"
     done
 
-    # Merga en i taget
+    # Merge one at a time
     for branch in "${sorted_branches[@]}"; do
         if merge_branch_smart "$branch"; then
             ((merged++))
 
-            # Kör tester efter varje merge
+            # Run tests after each merge
             if ! run_tests 2>/dev/null; then
-                log "${YELLOW}⚠️ Tester failar efter merge av $branch${NC}"
-                # Fortsätt ändå - kan fixas senare
+                log "${YELLOW}⚠️ Tests fail after merge of $branch${NC}"
+                # Continue anyway - can be fixed later
             fi
         else
             ((failed++))
@@ -1436,21 +1436,21 @@ merge_branches_sequential() {
         fi
     done
 
-    # Resultat
-    log "${CYAN}═══ MERGE RESULTAT ═══${NC}"
-    log "${GREEN}✅ Mergade: $merged${NC}"
-    log "${RED}❌ Misslyckade: $failed${NC}"
+    # Result
+    log "${CYAN}═══ MERGE RESULT ═══${NC}"
+    log "${GREEN}✅ MERGED: $merged${NC}"
+    log "${RED}❌ Failed: $failed${NC}"
 
     if [ $failed -gt 0 ]; then
-        log "Branches som behöver manuell review:"
+        log "Branches that need manual review:"
         for branch in "${failed_branches[@]}"; do
-            log "  - $branch"
+            log " - $branch"
         done
     fi
 
-    # Pusha main om något mergades
+    # Push main if something merged
     if [ $merged -gt 0 ]; then
-        log "${CYAN}Pushar $MAIN_BRANCH till origin...${NC}"
+        log "${CYAN}Push $MAIN_BRANCH to origin...${NC}"
         git push origin "$MAIN_BRANCH" 2>&1 || log "${YELLOW}Push failed${NC}"
     fi
 
@@ -1470,13 +1470,13 @@ try_auto_merge() {
         safe=false
     fi
 
-    # Check 2: Farliga kommandon
+    # Check 2: Dangerous commands
     if git diff "$MAIN_BRANCH".."$branch" 2>/dev/null | grep -qE "(rm -rf /|sudo rm|curl.*\|.*bash)" ; then
-        log "${RED}⚠️ Farliga kommandon${NC}"
+        log "${RED}⚠️ Dangerous commands${NC}"
         safe=false
     fi
 
-    # Check 3: Tester
+    # Check 3: Tests
     if ! run_tests; then
         log "${RED}⚠️ Tester failar${NC}"
         safe=false
@@ -1485,18 +1485,18 @@ try_auto_merge() {
     if [ "$safe" = true ]; then
         log "${GREEN}🔥 AUTO-MERGE: $branch → $MAIN_BRANCH${NC}"
     else
-        log "${YELLOW}⚠️ Säkerhetsvarningar - mergar ändå (skippar PR)${NC}"
+        log "${YELLOW}⚠️ Safety alerts - merge anyway (skipping PRD)${NC}"
     fi
 
-    # Alltid merga till main (skippa PR-skapande för enklare workflow)
+    # Always merge to main (skip PRs creation for easier workflow)
     git checkout "$MAIN_BRANCH"
-    git merge "$branch" -m "Ralph: $branch" 2>/dev/null || {
-        log "${YELLOW}Merge-konflikt - använder smart merge${NC}"
+    git merge "$branch" -m "ralph: $branch" 2>/dev/null || {
+        log "${YELLOW}Merge conflict - using smart merge${NC}"
         merge_branch_smart "$branch"
     }
     git push origin "$MAIN_BRANCH" 2>/dev/null || true
 
-    # Ta bort feature branch
+    # Remove feature branch
     git branch -d "$branch" 2>/dev/null || true
     git push origin --delete "$branch" 2>/dev/null || true
 
@@ -1504,7 +1504,7 @@ try_auto_merge() {
 }
 
 # =============================================================================
-# SUMMARY RAPPORT
+# SUMMARY REPORT
 # =============================================================================
 generate_summary() {
     local specs_done="$1"
@@ -1516,27 +1516,27 @@ generate_summary() {
     cat > "$summary_file" << EOF
 # 🤖 Ralph Summary
 
-**Tid:** $(date '+%Y-%m-%d %H:%M:%S')
+**Time:** $(date '+%Y-%m-%d %H:%M:%S')
 **Log:** $LOG_DIR/
 
-## Resultat
+## Result
 
-| Status | Antal |
+| Status | Number |
 |--------|-------|
-| ✅ Klara | $specs_done |
-| ❌ Misslyckade | $specs_failed |
-| **Totalt** | $specs_total |
+| ✅ Done | $specs_done |
+| ❌ Failed | $specs_failed |
+| **Total** | $specs_total |
 
 ## Rate Limits
 
-$(tail -5 "$RATE_LIMIT_LOG" 2>/dev/null || echo "Inga")
+$(tail -5 "$RATE_LIMIT_LOG" 2>/dev/null || echo "None")
 
 ## Token Usage
 
-$(tail -5 "$TOKEN_LOG" 2>/dev/null || echo "Ingen data")
+$(tail -5 "$TOKEN_LOG" 2>/dev/null || echo "No data")
 
 ---
-*Generated by ralph.sh*
+*Generated by ralph.sh
 EOF
 
     log "Summary: $summary_file"
@@ -1546,11 +1546,11 @@ EOF
 # STATUS
 # =============================================================================
 show_status() {
-    echo -e "${GREEN}=== Ralph Status ===${NC}"
+    echo -e "${GREEN}=== ralph Status ===${NC}"
     echo ""
 
-    echo "Processer:"
-    ps aux | grep -E "ralph|claude" | grep -v grep | head -5 || echo "  Inga"
+    echo "Processes:"
+    ps aux | grep -E "ralph|claude" | grep -v grep | head -5 || echo " None"
     echo ""
 
     if git rev-parse --git-dir > /dev/null 2>&1; then
@@ -1561,28 +1561,28 @@ show_status() {
     fi
     echo ""
 
-    echo "Rate limits (senaste 5):"
-    tail -5 "$RATE_LIMIT_LOG" 2>/dev/null || echo "  Inga"
+    echo "Rate limits (last 5):"
+    tail -5 "$RATE_LIMIT_LOG" 2>/dev/null || echo " None"
     echo ""
 
-    echo "Token usage (senaste 5):"
-    tail -5 "$TOKEN_LOG" 2>/dev/null || echo "  Ingen data"
+    echo "Token usage (last 5):"
+    tail -5 "$TOKEN_LOG" 2>/dev/null || echo " No data"
 }
 
 # =============================================================================
 # WATCH MODE (Fireplace View) - Enhanced Dashboard
 # =============================================================================
 show_watch() {
-    # Initiera stack för att visa info
+    # Initialize stack to show info
     CURRENT_STACK=$(detect_stack ".")
     STACK_TEMPLATE_DIR="$RALPH_DIR/templates/stacks/$CURRENT_STACK"
 
     echo -e "${MAGENTA}"
     echo "╔═══════════════════════════════════════════════════════════════╗"
-    echo "║                    🔥 RALPH DASHBOARD 🔥                      ║"
-    echo "║                                                               ║"
-    echo "║   Luta dig tillbaka och observera. Ralph jobbar.              ║"
-    echo "║   Ctrl+C för att avsluta                                      ║"
+    echo "║ 🔥 RALPH DASHBOARD 🔥 ║"
+    echo "║ ║"
+    echo "║ Sit back and observe. Ralph is at work.              ║"
+    echo "║ Ctrl+C to exit ║"
     echo "╚═══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
     echo ""
@@ -1590,7 +1590,7 @@ show_watch() {
     while true; do
         clear
         echo -e "${MAGENTA}═══════════════════════════════════════════════════════════════${NC}"
-        echo -e "${MAGENTA}                    🔥 RALPH DASHBOARD 🔥                       ${NC}"
+        echo -e "${MAGENTA} 🔥 RALPH DASHBOARD 🔥 ${NC}"
         echo -e "${MAGENTA}═══════════════════════════════════════════════════════════════${NC}"
         echo ""
         echo -e "${CYAN}[$(date '+%H:%M:%S')] Status${NC}"
@@ -1603,25 +1603,25 @@ show_watch() {
         fi
         echo ""
 
-        # Worktrees (parallella builds)
+        # Worktrees (parallel builds)
         local worktree_count=$(git worktree list 2>/dev/null | wc -l | tr -d ' ')
         if [ "$worktree_count" -gt 1 ]; then
-            echo -e "${YELLOW}Aktiva worktrees: ${GREEN}$worktree_count${NC}"
-            git worktree list 2>/dev/null | tail -n +2 | sed 's/^/  /'
+            echo -e "${YELLOW}Active worktrees: ${GREEN}$worktree_count${NC}"
+            git worktree list 2>/dev/null | tail -n +2 | sed 's/^/ /'
             echo ""
         fi
 
-        # Aktiva processer
-        echo -e "${YELLOW}Processer:${NC}"
+        # Active processes
+        echo -e "${YELLOW}Process:${NC}"
         local procs=$(ps aux | grep -E "ralph|claude" | grep -v grep | grep -v watch)
         if [ -n "$procs" ]; then
-            echo "$procs" | awk '{printf "  %-8s %5s%% CPU  %5s%% MEM  %s\n", $11, $3, $4, $12}' | head -5
+            echo "$procs" | awk '{printf " %-8s %5s%% CPU %5s%% MEM %s\n", $11, $3, $4, $12}' | head -5
         else
-            echo "  (inga aktiva)"
+            echo " (no active)"
         fi
         echo ""
 
-        # Specs status
+        # specs status
         local total_specs=$(ls -1 specs/*.md 2>/dev/null | wc -l | tr -d ' ')
         local done_specs=$(ls -1 .spec-checksums/*.md5 2>/dev/null | wc -l | tr -d ' ')
         if [ "$total_specs" -gt 0 ]; then
@@ -1631,24 +1631,24 @@ show_watch() {
             local bar_width=40
             local filled=$((percent * bar_width / 100))
             local empty=$((bar_width - filled))
-            printf "  ["
-            printf "%${filled}s" | tr ' ' '█'
+            printf " ["
+            printf "%${filled}s" | tr ' ' '"'
             printf "%${empty}s" | tr ' ' '░'
             printf "] %d%%\n" $percent
             echo ""
         fi
 
-        # Senaste git commits
+        # Latest git commits
         if git rev-parse --git-dir > /dev/null 2>&1; then
-            echo -e "${YELLOW}Senaste commits:${NC}"
-            git log --oneline -5 2>/dev/null | sed 's/^/  /'
+            echo -e "${YELLOW}Latest commits:${NC}"
+            git log --oneline -5 2>/dev/null | sed 's/^/ /'
             echo ""
 
-            # Ändrade filer
+            # Changed files
             local changes=$(git status --short 2>/dev/null | wc -l | tr -d ' ')
             if [ "$changes" -gt 0 ]; then
-                echo -e "${YELLOW}Ändrade filer: ${GREEN}$changes${NC}"
-                git status --short 2>/dev/null | head -10 | sed 's/^/  /'
+                echo -e "${YELLOW}Changed files: ${GREEN}$changes${NC}"
+                git status --short 2>/dev/null | head -10 | sed 's/^/ /'
                 echo ""
             fi
         fi
@@ -1656,27 +1656,27 @@ show_watch() {
         # Progress.txt (short-term memory)
         if [ -f "$PROGRESS_FILE" ]; then
             local progress_lines=$(wc -l < "$PROGRESS_FILE" | tr -d ' ')
-            echo -e "${YELLOW}Progress (senaste):${NC}"
-            tail -5 "$PROGRESS_FILE" 2>/dev/null | sed 's/^/  /'
+            echo -e "${YELLOW}Progress (latest):${NC}"
+            tail -5 "$PROGRESS_FILE" 2>/dev/null | sed 's/^/ /'
             echo ""
         fi
 
-        # Senaste logg-entry
+        # Latest log entry
         local latest_log=$(ls -t "$LOG_DIR"/ralph-*.log 2>/dev/null | head -1)
         if [ -n "$latest_log" ]; then
-            echo -e "${YELLOW}Senaste logg:${NC}"
-            tail -8 "$latest_log" 2>/dev/null | sed 's/^/  /'
+            echo -e "${YELLOW}Latest log:${NC}"
+            tail -8 "$latest_log" 2>/dev/null | sed 's/^/ /'
             echo ""
         fi
 
         # Rate limits & tokens
         local rate_count=$(wc -l < "$RATE_LIMIT_LOG" 2>/dev/null || echo 0)
         local token_total=$(awk -F'|' '{sum += $2} END {print sum}' "$TOKEN_LOG" 2>/dev/null || echo 0)
-        echo -e "${YELLOW}Rate limits: ${RED}$rate_count${NC}  |  ${YELLOW}Tokens: ${CYAN}~$token_total${NC}"
+        echo -e "${YELLOW}Rate limits: ${RED}$rate_count${NC} | ${YELLOW}Tokens: ${CYAN}~$token_total${NC}"
 
         echo ""
         echo -e "${BLUE}───────────────────────────────────────────────────────────────${NC}"
-        echo -e "  Uppdateras var 5:e sekund. ${CYAN}Ctrl+C${NC} för att avsluta."
+        echo -e " Updated every 5 seconds. ${CYAN}Ctrl+C${NC} to exit."
         echo -e "${BLUE}───────────────────────────────────────────────────────────────${NC}"
 
         sleep 5
@@ -1691,12 +1691,12 @@ show_help() {
 ${GREEN}ralph.sh${NC} - The One Script To Rule Them All
 
 ${YELLOW}Usage:${NC}
-  ./ralph.sh                     Kör alla specs i specs/
-  ./ralph.sh specs/10-theme.md   Kör en spec
-  ./ralph.sh specs/*.md          Kör flera specs (parallellt)
-  ./ralph.sh --status            Visa status
-  ./ralph.sh --watch             Fireplace view (live monitoring)
-  ./ralph.sh --help              Visa hjälp
+  ./ralph.sh Run all specs in specs/
+  ./ralph.sh specs/10-theme.md Run one spec
+  ./ralph.sh specs/*.md Run multiple specs (in parallel)
+  ./ralph.sh --status Show status
+  ./ralph.sh --watch Fireplace view (live monitoring)
+  ./ralph.sh --help Display help
 
 ${YELLOW}Features:${NC}
   ✓ Self-healing retries
@@ -1706,13 +1706,13 @@ ${YELLOW}Features:${NC}
   ✓ Git branch isolation
   ✓ Smart parallel execution (max 3)
   ✓ Supervisor quality checks
-  ✓ Auto-merge (om säkert)
+  ✓ Auto-merge (if safe)
   ✓ ntfy notifications
   ✓ progress.txt (short-term memory)
   ✓ CLAUDE.md updates (long-term memory)
 
 ${YELLOW}Environment:${NC}
-  NTFY_TOPIC    ntfy topic (optional, no default)
+  NTFY_TOPIC ntfy topic (optional, no default)
 
 EOF
 }
@@ -1751,30 +1751,30 @@ main() {
     mkdir -p "$LOG_DIR"
     mkdir -p "$BACKUP_DIR"
 
-    notify "🚀 Ralph startar"
+    notify "🚀 Ralph Starting"
     log "${GREEN}=== Ralph Starting ===${NC}"
 
-    # Detektera och initiera stack
+    # Detect and initialize stack
     init_stack "."
 
     # Backup
     backup_project
 
-    # Samla specs
+    # Collect specs
     local specs=()
 
     if [ $# -eq 0 ]; then
-        # Alla specs
+        # All specs
         for f in specs/*.md; do
             [ -f "$f" ] && specs+=("$f")
         done
     else
-        # Angivna specs
+        # Specs specified
         specs=("$@")
     fi
 
     if [ ${#specs[@]} -eq 0 ]; then
-        log "${RED}Inga specs hittades${NC}"
+        log "${RED}No specs found${NC}"
         exit 1
     fi
 
@@ -1783,16 +1783,16 @@ main() {
     local specs_done=0
     local specs_failed=0
 
-    # Parallellt eller sekventiellt?
+    # Parallel or sequential?
     if [ ${#specs[@]} -gt $PARALLEL_THRESHOLD ]; then
-        # Parallellt
+        # Parallel
         run_parallel "${specs[@]}" && specs_done=${#specs[@]} || specs_failed=$?
     else
-        # Sekventiellt
-        for spec in "${specs[@]}"; do
+        # Sequentially
+        for specs in "${specs[@]}"; do
             local branch="ralph-$(basename "$spec" .md)-$TIMESTAMP"
 
-            # Skapa branch
+            # Create branch
             git checkout -b "$branch" 2>/dev/null || true
 
             if run_single_spec "$spec" "$branch"; then
@@ -1805,7 +1805,7 @@ main() {
                 # Push branch
                 git push -u origin "$branch" 2>/dev/null || true
 
-                # Auto-merge (spec är redan klar, räkna som done)
+                # Auto-merge (specs are already done, count as done)
                 try_auto_merge "$branch" || true
                 ((specs_done++))
             else
@@ -1817,23 +1817,23 @@ main() {
     fi
 
     # =============================================================================
-    # FINAL BUILD LOOP - Kör tills build passerar (definition of done!)
+    # FINAL BUILD LOOP - Run until build passes (definition of done!)
     # =============================================================================
     log "${MAGENTA}═══ FINAL BUILD CHECK ═══${NC}"
-    log "Definition of Done: npm run build MÅSTE passera"
+    log "Definition of Done: npm run build MUST pass"
 
     local final_attempts=0
-    local max_final_attempts=10  # Max 10 försök att fixa build
+    local max_final_attempts=10 # Max 10 attempts to fix build
     local build_passed=false
 
     while [ $final_attempts -lt $max_final_attempts ]; do
         ((final_attempts++))
         log "${CYAN}Final build attempt $final_attempts/$max_final_attempts${NC}"
 
-        # Säkerställ dependencies
+        # Ensure dependencies
         ensure_dependencies || true
 
-        # Kör build
+        # Run build
         local final_output
         local final_exit=0
         final_output=$(npm run build 2>&1) || final_exit=$?
@@ -1842,9 +1842,9 @@ main() {
             log "${GREEN}✅ FINAL BUILD PASSED!${NC}"
             build_passed=true
 
-            # Commit och push
+            # Commit and push
             git add -A 2>/dev/null || true
-            git commit -m "Ralph: final build passed" 2>/dev/null || true
+            git commit -m "ralph: final build passed" 2>/dev/null || true
             git push origin "$MAIN_BRANCH" 2>/dev/null || true
 
             break
@@ -1853,41 +1853,41 @@ main() {
         log "${RED}❌ Build failed${NC}"
         echo "$final_output" | tail -30
 
-        # Försök 1: Self-heal (saknade dependencies)
+        # Try 1: Self-heal (missing dependencies)
         if try_selfheal "$final_output"; then
-            log "${CYAN}Self-heal kördes, försöker igen...${NC}"
+            log "${CYAN}Self-heal ran, trying again...${NC}"
             continue
         fi
 
-        # Försök 2: Be Claude fixa
-        log "${CYAN}Ber Claude fixa build-felen...${NC}"
+        # Attempt 2: Ask Claude to fix
+        log "${CYAN}Tell Claude to fix the build errors...${NC}"
 
-        local fix_prompt="Build FAILED med följande fel:
+        local fix_prompt="Build FAILED with the following error:
 
 $final_output
 
-VIKTIGT: Detta är FINAL BUILD. Projektet måste bygga.
-Analysera felet och fixa det. Kör sedan 'npm run build' för att verifiera.
+IMPORTANT: This is FINAL BUILD. The project must build.
+Analyze the error and fix it. Then run 'npm run build' to verify.
 
-När build passerar, skriv: <promise>DONE</promise>"
+When build passes, type: <promise>DONE</promise>"
 
         local fix_output
         fix_output=$(echo "$fix_prompt" | timeout $TIMEOUT claude --dangerously-skip-permissions -p 2>&1) || true
 
         echo "$fix_output"
 
-        # Commit eventuella ändringar
+        # Commit any changes
         if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
             git add -A 2>/dev/null || true
-            git commit -m "Ralph: fix build (attempt $final_attempts)" 2>/dev/null || true
+            git commit -m "ralph: fix build (attempt $final_attempts)" 2>/dev/null || true
         fi
 
         sleep 5
     done
 
     if [ "$build_passed" = false ]; then
-        log "${RED}═══ FINAL BUILD FAILED EFTER $max_final_attempts FÖRSÖK ═══${NC}"
-        notify "❌ Final build failed efter $max_final_attempts försök" "urgent"
+        log "${RED}═══ FINAL BUILD FAILED AFTER $max_final_attempts ATTEMPT ═══${NC}"
+        notify "❌ Final build failed after $max_final_attempts attempt" "urgent"
         specs_failed=$((specs_failed + 1))
     fi
 
@@ -1899,11 +1899,11 @@ När build passerar, skriv: <promise>DONE</promise>"
         notify "✅ Ralph DONE: $specs_done/${#specs[@]} specs, build OK"
         log "${GREEN}═══ RALPH DONE: $specs_done/${#specs[@]}, BUILD OK ═══${NC}"
     else
-        notify "⚠️ Ralph: $specs_done OK, $specs_failed failed, build: $build_passed"
-        log "${YELLOW}═══ RALPH: $specs_done OK, $specs_failed FAILED, build: $build_passed ═══${NC}"
+        notify "⚠️ ralph: $specs_done OK, $specs_failed failed, build: $build_passed"
+        log "${YELLOW}════ RALPH: $specs_done OK, $specs_failed FAILED, build: $build_passed ═══${NC}"
     fi
 
-    # Exit code baserat på build status
+    # Exit code based on build status
     if [ "$build_passed" = true ]; then
         exit 0
     else
@@ -1911,5 +1911,5 @@ När build passerar, skriv: <promise>DONE</promise>"
     fi
 }
 
-# Kör
+# Run
 main "$@"

@@ -1,25 +1,25 @@
 # /ralph:status - Check Ralph Status on VM
 
-Visa Ralph's progress på VM utan att SSH:a manuellt.
+View ralph's progress on VM without manually SSHing.
 
 ## Usage
 ```
 /ralph:status
-/ralph:status --log      # Visa senaste log-rader
-/ralph:status --full     # Visa allt
+/ralph:status --log      # Show latest log lines
+/ralph:status --full     # Show everything
 ```
 
 ## Instructions
 
-Läs VM-config och hämta status via SSH.
+Read VM-config and retrieve status via SSH.
 
-**STEG 1: LÄS VM CONFIG**
+**STEP 1: READ VM CONFIG**
 ```bash
 source ~/.ralph-vm
-# Ger: VM_IP, VM_USER
+# Provides: VM_IP, VM_USER
 ```
 
-**STEG 2: HÄMTA STATUS**
+**STEP 2: RETRIEVE STATUS**
 ```bash
 ssh $VM_USER@$VM_IP << 'EOF'
 cd ~/projects/$(ls -t ~/projects | head -1)
@@ -75,8 +75,8 @@ EOF
 [log output]
 ```
 
-**OM --log FLAGGA:**
-Visa mer log:
+**IF --log FLAG:**
+Show more log:
 ```bash
 ssh $VM_USER@$VM_IP "tail -50 ~/projects/*/ralph-deploy.log"
 ```

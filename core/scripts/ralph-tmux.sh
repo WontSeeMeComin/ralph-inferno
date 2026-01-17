@@ -1,15 +1,15 @@
 #!/bin/bash
-# ralph-tmux.sh - Ralph med TMUX context scraping
+# ralph-tmux.sh - Ralph with TMUX context scraping
 #
-# "LLMs vet hur man driver TMUX. Tänk på loop backs -
-# alla sätt som LLM:en automatiskt kan scrapa context."
-# — Geoffrey Huntley
+# "LLMs know how to run TMUX. Think of loop backs.
+# all the ways the LLM can automatically scrape context."
+# - Geoffrey Huntley
 #
-# Skapar TMUX-session med:
+# Creates TMUX session with:
 # - Pane 0: Dev server (npm run dev)
-# - Pane 1: Ralph loop med context från pane 0
+# - Pane 1: Ralph loop with context from pane 0
 #
-# Användning: ./ralph-tmux.sh <spec-fil> [dev-kommando]
+# Usage: ./ralph-tmux.sh <spec file> [dev command]
 
 set -e
 
@@ -19,7 +19,7 @@ SESSION="ralph-dev-$$"
 MAX_ITERATIONS="${3:-30}"
 COMPLETION_MARKER="<promise>DONE</promise>"
 
-# Färger
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -32,60 +32,60 @@ echo "Spec: $SPEC_FILE"
 echo "Dev cmd: $DEV_CMD"
 echo ""
 
-# Verifiera spec finns
+# Verify specs exist
 if [ ! -f "$SPEC_FILE" ]; then
-    echo -e "${RED}Error: Spec-fil '$SPEC_FILE' hittades inte${NC}"
+    echo -e "${RED}Error: Spec file '$SPEC_FILE' not found${NC}"
     exit 1
 fi
 
-# Skapa TMUX-session
+# Create TMUX session
 tmux new-session -d -s "$SESSION" -x 200 -y 50
 
-# Splitta horisontellt
+# Split horizontally
 tmux split-window -h -t "$SESSION"
 
-# Pane 0 (vänster): Dev server
+# Pane 0 (left): Dev server
 tmux send-keys -t "$SESSION:0.0" "$DEV_CMD 2>&1 | tee /tmp/ralph-dev-$$.log" Enter
 
-# Vänta på att servern startar
+# Wait for the server to start
 sleep 3
 
-# Pane 1 (höger): Ralph loop med context scraping
+# Pane 1 (right): Ralph loop with context scraping
 tmux send-keys -t "$SESSION:0.1" "
 SPEC_FILE='$SPEC_FILE'
 MAX_ITERATIONS=$MAX_ITERATIONS
 COMPLETION_MARKER='$COMPLETION_MARKER'
 BASE_PROMPT=\$(cat \"\$SPEC_FILE\")
 
-echo '=== Ralph med TMUX Context ==='
+echo '=== Ralph with TMUX Context ==='
 echo ''
 
 for i in \$(seq 1 \$MAX_ITERATIONS); do
     echo \"--- Iteration \$i/\$MAX_ITERATIONS ---\"
 
-    # Scrapa context från dev server (senaste 30 rader)
-    DEV_CONTEXT=\$(tail -30 /tmp/ralph-dev-$$.log 2>/dev/null || echo 'Ingen dev output')
+    # Scrape context from dev server (last 30 lines)
+    DEV_CONTEXT=\$(tail -30 /tmp/ralph-dev-$$.log 2>/dev/null || echo 'No dev output')
 
-    # Bygg prompt med context
+    # Build prompt with context
     PROMPT=\"\$BASE_PROMPT
 
-## Aktuell server-output (senaste 30 rader):
+## Current server output (last 30 lines):
 \\\`\\\`\\\`
 \$DEV_CONTEXT
 \\\`\\\`\\\`
 
-Om det finns fel i server-outputen, fixa dem.\"
+If there are errors in the server output, fix them.\"
 
-    # Kör Claude
-    # VIKTIGT: Använd pipe istället för --print som hänger!
+    # Run Claude
+    # IMPORTANT: Use pipe instead of --print which hangs!
     OUTPUT=\$(echo \"\$PROMPT\" | claude --dangerously-skip-permissions 2>&1)
     echo \"\$OUTPUT\"
 
-    # Kolla completion
+    # Check completion
     if echo \"\$OUTPUT\" | grep -q \"\$COMPLETION_MARKER\"; then
         echo ''
-        echo '✅ Completion marker hittad!'
-        echo \"Ralph klar efter \$i iterationer\"
+        echo '✅ Completion marker found!'
+        echo \"Ralph ready after \$i iterations\"
         break
     fi
 
@@ -93,23 +93,23 @@ Om det finns fel i server-outputen, fixa dem.\"
 done
 
 echo ''
-echo 'Tryck Enter för att avsluta TMUX-sessionen'
+echo 'Press Enter to end the TMUX session'
 read
 tmux kill-session -t $SESSION
 " Enter
 
 # Info
-echo -e "${GREEN}TMUX-session startad!${NC}"
+echo -e "${GREEN}TMUX session started!${NC}"
 echo ""
-echo "Kommandon:"
-echo "  tmux attach -t $SESSION     # Visa sessionen"
-echo "  tmux kill-session -t $SESSION  # Avsluta"
+echo "Commands:"
+echo " tmux attach -t $SESSION # Show the session"
+echo " tmux kill-session -t $SESSION # Terminate"
 echo ""
-echo -e "${YELLOW}Tip: Pane 0 = dev server, Pane 1 = Ralph${NC}"
+echo -e "${YELLOW}Tip: Pane 0 = dev server, Pane 1 = ralph${NC}"
 echo ""
 
-# Fråga om attach
-read -p "Attacha till session? (y/n): " choice
+# Ask for attach
+read -p "Attach to session? (y/n): " choice
 if [ "$choice" = "y" ]; then
     tmux attach -t "$SESSION"
 fi

@@ -1,74 +1,74 @@
 # 01-project-setup
 
 > Epic: Foundation
-> Dependencies: None (första spec)
+> Dependencies: None (first spec)
 
 ---
 
-## Mål
+## Target
 
-Sätt upp projektets grundstruktur med alla nödvändiga verktyg för att Ralph ska kunna bygga och testa autonomt.
+Set up the basic structure of the project with all the necessary tools to allow Ralph to build and test autonomously.
 
 ---
 
 ## Functional Requirements (FR)
 
 ### FR1: Vite + React + TypeScript
-Skapa nytt projekt med modern stack.
+Create new project with modern stack.
 
 **Acceptance Criteria:**
-- [ ] `npm run dev` startar dev-server
-- [ ] `npm run build` bygger utan errors
-- [ ] TypeScript strict mode aktiverat
+- [ ] `npm run dev` starts dev server
+- [ ] `npm run build` builds without errors
+- [ ] TypeScript strict mode enabled
 
 ### FR2: Tailwind CSS
-Konfigurera Tailwind med design tokens från PRD.
+Configure Tailwind with design tokens from PRD.
 
 **Acceptance Criteria:**
-- [ ] Tailwind klasser fungerar
-- [ ] Design tokens från PRD i `tailwind.config.js`
-- [ ] CSS-variabler för tema
+- [ ] Tailwind classes work
+- [ ] Design tokens from PRD in `tailwind.config.js`
+- [ ] CSS variables for theme
 
 ### FR3: Playwright E2E Testing
-> ⚠️ KRITISKT för Ralph's test-loop
+> ⚠️ CRITICAL for ralph's test loop
 
 **Acceptance Criteria:**
-- [ ] `npx playwright install` kört
-- [ ] `playwright.config.ts` konfigurerad
-- [ ] `e2e/` mapp skapad
-- [ ] Smoke test finns och passerar
+- [ ] `npx playwright install` running
+- [ ] `playwright.config.ts` configured
+- [ ] `e2e/` folder created
+- [ ] Smoke test exists and passes
 
-### FR4: Vitest Unit Testing (om relevant)
+### FR4: Vitest Unit Testing (if relevant)
 
 **Acceptance Criteria:**
-- [ ] `npm test` fungerar
-- [ ] Exempel-test passerar
+- [ ] `npm test` works
+- [ ] Sample test passes
 
 ---
 
 ## Technical Implementation
 
-### Kommandon att köra
+### Commands to run
 ```bash
-# 1. Skapa projekt
+# 1. Create project
 npm create vite@latest . -- --template react-ts
 
-# 2. Installera dependencies
+# 2. Install dependencies
 npm install
 
 # 3. Tailwind
 npm install -D tailwindcss postcss autoprefixer
 npx tailwindcss init -p
 
-# 4. Playwright (KRITISKT!)
+# 4. Playwright (CRITICAL!)
 npm install -D @playwright/test
 npx playwright install
 
-# 5. Skapa playwright.config.ts
-# 6. Skapa e2e/smoke.spec.ts
+# 5. Create playwright.config.ts
+# 6. Create e2e/smoke.spec.ts
 ```
 
-### Filer att skapa
+### Files to create
 
 **playwright.config.ts:**
 ```typescript
@@ -104,7 +104,7 @@ test('app loads successfully', async ({ page }) => {
 });
 ```
 
-**tailwind.config.js** (med design tokens):
+**tailwind.config.js** (with design tokens):
 ```javascript
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -112,12 +112,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Lägg till från PRD Design System
+        // Add from PRD Design System
         primary: 'var(--color-primary)',
         accent: 'var(--color-accent)',
         // ...
       },
-      // Spacing, fonts etc från PRD
+      // Spacing, fonts etc from PRD
     },
   },
   plugins: [],
@@ -128,9 +128,9 @@ export default {
 
 ## E2E Test
 
-**Testfil:** `e2e/smoke.spec.ts`
+**Test file:** `e2e/smoke.spec.ts`
 
-**Tester att skriva:**
+**Tests to write:**
 ```typescript
 test('app loads and shows content', async ({ page }) => {
   await page.goto('/');
@@ -140,11 +140,11 @@ test('app loads and shows content', async ({ page }) => {
 
 ---
 
-## Klart när
+## Ready when
 
-- [ ] `npm run dev` fungerar
-- [ ] `npm run build` passerar
-- [ ] `npx playwright test` passerar
-- [ ] Tailwind fungerar (testa med en klass)
-- [ ] Design tokens från PRD i config
-- [ ] Projektstruktur enligt CLAUDE.md
+- [ ] `npm run dev` works
+- [ ] `npm run build` passes
+- [ ] `npx playwright test` passes
+- [ ] Tailwind works (test with a class)
+- [ ] Design tokens from PRD in config
+- [ ] Project structure according to CLAUDE.md

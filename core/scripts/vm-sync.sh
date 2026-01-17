@@ -1,17 +1,17 @@
 #!/bin/bash
-# vm-sync.sh - Synka projekt till/från VM
+# vm-sync.sh - Sync projects to/from VM
 #
-# Läser config från .ralph/config.json
-# Stödjer: hcloud, gcloud, doctl, aws, ssh
+# Reads config from .ralph/config.json
+# Supports: hcloud, gcloud, doctl, aws, ssh
 #
-# Användning:
-#   ./vm-sync.sh push [path]     # Skicka till VM
-#   ./vm-sync.sh pull [path]     # Hämta från VM
-#   ./vm-sync.sh ssh             # SSH till VM
-#   ./vm-sync.sh start           # Starta VM
-#   ./vm-sync.sh stop            # Stoppa VM
-#   ./vm-sync.sh status          # Visa status
-#   ./vm-sync.sh run <spec>      # Kör Ralph på VM
+# Usage:
+# ./vm-sync.sh push [path] # Send to VM
+# ./vm-sync.sh pull [path] # Pull from VM
+# ./vm-sync.sh ssh # SSH to VM
+# ./vm-sync.sh start # Start VM
+# ./vm-sync.sh stop # Stop the VM
+# ./vm-sync.sh status # View status
+# ./vm-sync.sh run <spec> # Run ralph on VM
 
 set -e
 
@@ -88,7 +88,7 @@ case "$1" in
         ;;
 
     init)
-        echo -e "${YELLOW}Initializing VM with Ralph dependencies...${NC}"
+        echo -e "${YELLOW}Initializing VM with ralph dependencies...${NC}"
         vm_scp_to "$SCRIPT_DIR/vm-init.sh" "/tmp/vm-init.sh"
         vm_ssh "chmod +x /tmp/vm-init.sh && /tmp/vm-init.sh"
         echo -e "${GREEN}VM initialized!${NC}"
@@ -102,14 +102,14 @@ case "$1" in
         echo "VM: $(vm_name)"
         echo ""
         echo "Commands:"
-        echo "  $0 push [path]    Push project to VM"
-        echo "  $0 pull [path]    Pull changes from VM"
-        echo "  $0 ssh            SSH to VM"
-        echo "  $0 start          Start VM"
-        echo "  $0 stop           Stop VM (saves money)"
-        echo "  $0 status         Show VM status"
-        echo "  $0 run <spec>     Run Ralph with spec file"
-        echo "  $0 create         Show create command"
-        echo "  $0 init           Initialize VM with dependencies"
+        echo "$0 push [path] Push project to VM"
+        echo " $0 pull [path] Pull changes from VM"
+        echo " $0 ssh SSH to VM"
+        echo " $0 start Start VM"
+        echo " $0 stop Stop VM (saves money)"
+        echo " $0 status Show VM status"
+        echo " $0 run <spec> Run ralph with spec file"
+        echo " $0 create Show create command"
+        echo " $0 init Initialize VM with dependencies"
         ;;
 esac

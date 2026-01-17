@@ -1,9 +1,9 @@
 #!/bin/bash
-# post-create.sh - Körs efter att en ny fil skapats
+# post-create.sh - Run after a new file is created
 #
-# Automatiskt lägger till export i index.ts för nya komponenter/hooks
+# Automatically adds exports to index.ts for new components/hooks
 #
-# Användning: post-create.sh <skapad-fil>
+# Usage: post-create.sh <created-file>
 
 set -e
 
@@ -13,39 +13,39 @@ if [ -z "$FILE" ] || [ ! -f "$FILE" ]; then
     exit 0
 fi
 
-# Bara hantera .tsx och .ts filer (inte index.ts)
+# Only handle .tsx and .ts files (not index.ts)
 if [[ ! "$FILE" =~ \.(tsx|ts)$ ]] || [[ "$FILE" =~ index\.ts$ ]]; then
     exit 0
 fi
 
 DIR=$(dirname "$FILE")
 BASENAME=$(basename "$FILE")
-NAME="${BASENAME%.*}"  # Ta bort extension
+NAME="${BASENAME%.*}"  # Remove extension
 INDEX_FILE="$DIR/index.ts"
 
-# Kolla om det är en komponent/hook-mapp
+# Check if it is a component/hook folder
 if [[ "$DIR" =~ src/components/ ]] || [[ "$DIR" =~ src/hooks ]] || [[ "$DIR" =~ src/contexts ]]; then
 
-    # Skapa index.ts om den inte finns
+    # Create index.ts if it does not exist
     if [ ! -f "$INDEX_FILE" ]; then
         touch "$INDEX_FILE"
     fi
 
-    # Kolla om exporten redan finns
+    # Check if the export already exists
     if grep -q "export.*{.*$NAME.*}" "$INDEX_FILE" 2>/dev/null || \
        grep -q "export \* from './$NAME'" "$INDEX_FILE" 2>/dev/null; then
-        # Redan exporterad
+        # Already exported
         exit 0
     fi
 
-    # Lägg till export
-    # Använd named export för .tsx, namespace för .ts
+    # Add export
+    # Use named export for .tsx, namespace for .ts
     if [[ "$FILE" =~ \.tsx$ ]]; then
         echo "export { $NAME } from './$NAME'" >> "$INDEX_FILE"
     else
-        # För hooks/utilities, exportera allt
+        # For hooks/utilities, export everything
         echo "export * from './$NAME'" >> "$INDEX_FILE"
     fi
 
-    echo "📦 Auto-exporterade $NAME i $INDEX_FILE"
+    echo "📦 Auto-exported $NAME in $INDEX_FILE"
 fi

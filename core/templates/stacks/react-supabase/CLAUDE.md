@@ -1,32 +1,32 @@
 # CLAUDE.md - React + Supabase Stack
 
 ## Stack
-- Frontend: React 18+ med Vite
+- Frontend: React 18+ with Vite
 - Styling: Tailwind CSS
 - Backend: Supabase (PostgreSQL, Auth, Realtime)
-- Språk: TypeScript
+- Language: TypeScript
 
-## Projektstruktur
+## Project structure
 
 ```
 src/
 ├── components/
-│   ├── ui/           # Generella UI-komponenter
-│   ├── auth/         # Auth-relaterade komponenter
-│   └── {feature}/    # Feature-specifika komponenter
+│   ├── ui/           # General UI components
+│   ├── auth/         # Auth-related components
+│   └── {feature}/    # Feature-specific components
 ├── hooks/            # Custom React hooks
 ├── contexts/         # React contexts
 ├── lib/              # Utilities (supabase client, etc)
-├── pages/            # Route-komponenter
-└── types/            # TypeScript typer
+├── pages/            # Route components
+└── types/            # TypeScript types
 ```
 
-## Kodregler
+## Code rules
 
-### Komponenter
-- En komponent per fil
-- Named exports (inte default)
-- Varje mapp har `index.ts` som re-exporterar alla komponenter
+### Components
+- One component per file
+- Named exports (not default)
+- Each folder has `index.ts` which re-exports all components
 
 ```typescript
 // src/components/ui/index.ts
@@ -36,9 +36,9 @@ export { Card } from './Card'
 ```
 
 ### Hooks
-- Prefix med `use`
-- Returnera objekt med namngivna värden
-- Hantera loading och error states
+- Prefix with `use`
+- Return objects with named values
+- Handle loading and error states
 
 ```typescript
 export function useTodos() {
@@ -53,102 +53,102 @@ export function useTodos() {
 ```
 
 ### Supabase
-- Client i `src/lib/supabase.ts`
-- Typer i `src/lib/database.types.ts`
-- RLS-policies för all data
-- Använd `user_id` för row-level access
+- Client in `src/lib/supabase.ts`
+- Types in `src/lib/database.types.ts`
+- RLS policies for all data
+- Use `user_id` for row-level access
 
 ### Styling
-- Använd Tailwind utility classes
-- Definiera design tokens i `tailwind.config.js`
-- Använd CSS-variabler för teman
+- Use Tailwind utility classes
+- Define design tokens in `tailwind.config.js`
+- Use CSS variables for themes
 
-## Verifiering
+## Verification
 
-Efter varje epic, kör:
+After each epic, run:
 ```bash
-npm run build          # Inga compile-fel
-npm test               # Unit-tester passerar
-npx playwright test    # E2E-tester passerar
+npm run build          # No compile errors
+npm test               # Unit tests pass
+npx playwright test    # E2E tests pass
 ```
 
-## E2E-tester (Playwright)
+## E2E Tests (Playwright)
 
-E2E-tester ska testa **hela användarflödet**, inte bara att sidan laddar.
+E2E tests should test **the whole user flow**, not just the page loading.
 
-**Krav för auth-appar:**
-- Testa login-flöde (magic link eller lösenord)
-- Hämta magic link från Mailpit (`localhost:54324`) om behövs
-- Verifiera att användaren kommer till rätt sida efter login
-- Testa CRUD-operationer som inloggad användare
+**Requirements for auth apps:**
+- Test login flow (magic link or password)
+- Retrieve magic link from Mailpit (`localhost:54324`) if needed
+- Verify that user gets to the right page after login
+- Test CRUD operations as logged in user
 
-**Exempel på bra E2E-test:**
+**Example of good E2E test:**
 ```typescript
 test('user can login and create todo', async ({ page }) => {
-  // 1. Gå till login
+  // 1. Go to login
   await page.goto('/login');
 
-  // 2. Logga in (anpassa efter din auth-metod)
+  // 2. Log in (adapt to your auth method)
   await page.fill('input[type="email"]', 'test@example.com');
-  await page.click('button:has-text("Logga in")');
+  await page.click('button:has-text("Log in")');
 
-  // 3. Verifiera redirect till app
+  // 3. Verify redirect to app
   await expect(page).toHaveURL('/');
 
-  // 4. Skapa en todo
-  await page.fill('input[placeholder*="todo"]', 'Min nya todo');
-  await page.click('button:has-text("Lägg till")');
+  // 4. Create a todo
+  await page.fill('input[placeholder*="todo"]', 'My new todo');
+  await page.click('button:has-text("Add")');
 
-  // 5. Verifiera att den skapades
-  await expect(page.locator('text=Min nya todo')).toBeVisible();
+  // 5. Verify it was created
+  await expect(page.locator('text=My new todo')).toBeVisible();
 });
 ```
 
-**VIKTIGT:** Om E2E-tester bara testar att "sidan laddar" - de är för ytliga! Skapa tester som verifierar att appen faktiskt fungerar.
+**IMPORTANT:** If E2E tests only test that the "page loads" - they are too superficial! Create tests that verify that the app actually works.
 
 ## Supabase Setup
 
-Innan auth-utveckling:
+Before auth development:
 ```bash
-supabase start                    # Starta lokal instans
-supabase db reset                 # Kör migrations
-# Uppdatera .env med credentials från 'supabase status'
+supabase start                    # Start local instance
+supabase db reset                 # Run migrations
+# Update .env with credentials from 'supabase status'
 ```
 
-## Port-exponering för testning
+## Port exposure for testing
 
-För extern testning (browser utanför VM):
+For external testing (browser outside VM):
 ```bash
-# Dev-server på alla interface
+# Dev server on all interfaces
 npm run dev -- --host 0.0.0.0
 
-# Supabase är redan exponerad på 0.0.0.0:54321
+# Supabase is already exposed on 0.0.0.0:54321
 ```
 
-**VIKTIGT för E2E-tester:**
-- Playwright körs headless på VM
-- Mailpit för magic links: `http://localhost:54324`
-- API för att hämta mail programmatiskt: `http://localhost:54324/api/v1/messages`
+**IMPORTANT for E2E testing:**
+- Playwright runs headless on VM
+- Mailpit for magic links: `http://localhost:54324`
+- API to fetch mail programmatically: `http://localhost:54324/api/v1/messages`
 
 ## Regression Testing
 
-Vid ändringar, säkerställ att existerande funktionalitet inte bryts:
+When making changes, ensure that existing functionality is not broken:
 
-1. **Kör alla unit-tester** - `npm test`
-2. **Kör E2E-tester** - `npx playwright test`
-3. **Testa manuellt** - Öppna appen och verifiera grundflöden
+1. **Run all unit tests** - `npm test`
+2. **Run E2E tests** - `npx playwright test`
+3. **Manually test** - Open the app and verify basic flows
 
-**Regression test-checklista:**
-- [ ] Login fungerar (magic link eller lösenord)
-- [ ] CRUD på huvudentitet (t.ex. todos)
-- [ ] Logout fungerar
-- [ ] Felhantering visas korrekt
-- [ ] Responsiv design (mobil/desktop)
+**Regression test checklist:**
+- [ ] Login works (magic link or password)
+- [ ] CRUD on main entity (e.g. todos)
+- [ ] Logout works
+- [ ] Error handling is displayed correctly
+- [ ] Responsive design (mobile/desktop)
 
-## Vanliga Misstag
+## Common Mistakes
 
-1. **Glömd export** - Ny komponent måste läggas till i index.ts
-2. **Saknad prop** - Kolla att alla required props skickas
-3. **Supabase ej startad** - Ger "Failed to fetch" i browser
-4. **RLS blockerar** - Kolla policies om data inte visas
-5. **Fel redirect-URL** - Kolla `supabase/config.toml` site_url
+1. **Forgotten export** - New component must be added to index.ts
+2. **Missing prop** - Check that all required props are sent
+3. **Supabase not started** - Gives "Failed to fetch" in browser
+4. **RLS blocking** - Check policies if data is not displayed
+5. **Wrong redirect URL** - Check `supabase/config.toml` site_url

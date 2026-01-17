@@ -1,167 +1,167 @@
 # PROMPT_build.md - Implementation
 
-> "One task per iteration. Commit when tests pass." - Geoffrey Huntley
+> One task per iteration. Commit when tests pass." - Geoffrey Huntley
 
-**Läs först:** CLAUDE.md för context zones, subagent-regler, och kodfilosofi.
-
----
-
-## Fas 0: Orientera
-
-1. Läs IMPLEMENTATION_PLAN.md → identifiera nästa task
-2. Sök befintlig kod med subagents (upp till 500 parallella)
-3. Ha src/* som referens för patterns
+**Read first:** CLAUDE.md for context zones, subagent rules, and code philosophy.
 
 ---
 
-## Fas 1: Välj EN Task
+## Phase 0: Orientation
+
+1. read IMPLEMENTATION_PLAN.md → identify next task
+2. Search existing code with subagents (up to 500 parallel)
+3. Have src/* as reference for patterns
+
+---
+
+## Phase 1: Select ONE Task
 
 ```
-1. Läs IMPLEMENTATION_PLAN.md
-2. Välj högst prioriterad incomplete task
-3. Om HARD STOP → pausa, verifiera först
+1. Read IMPLEMENTATION_PLAN.md
+2. Select highest priority incomplete task
+3. If HARD STOP → pause, verify first
 ```
 
 ---
 
-## Fas 2: Sök Först
+## Phase 2: Search First
 
-**Sök ALLTID innan du skapar!**
+**ALWAYS search before you create!
 
 ```bash
-grep -r "funktionsnamn" src/
+grep -r "function_name" src/
 grep -r "ComponentName" src/components/
 ```
 
-- Anta ALDRIG att något saknas
-- Återanvänd befintlig kod
+- NEVER assume something is missing
+- Reuse existing code
 
 ---
 
-## Fas 3: TDD
+## Phase 3: TDD
 
 ```
-1. Skriv failing test
-2. Implementera minimal kod
-3. Kör test (endast 1 subagent)
-4. Om fail → fixa (max 3 försök)
-5. Upprepa tills grönt
+1. Write failing test
+2. Implement minimal code
+3. Run test (only 1 subagent)
+4. If fail → fix (max 3 attempts)
+5. Repeat until green
 ```
 
 ---
 
-## Fas 4: Export & Integration Checklist
+## Phase 4: Export & Integration Checklist
 
-**KRITISKT - Gör detta efter VARJE ny komponent/hook:**
+**CRITICAL - Do this after EACH new component/hook:**
 
 ```
-1. Ny komponent skapad? → Lägg till export i index.ts
-   - src/components/{kategori}/index.ts
+1. New component created? → Add export to index.ts
+   - src/components/{category}/index.ts
    - src/hooks/index.ts
    - src/contexts/index.ts
 
-2. Ny hook/context skapad? → Uppdatera pages som ska använda den
-   - Importera i rätt page
-   - Koppla props korrekt
+2. New hook/context created? → Update pages that will use it
+   - Import in the right page
+   - Connect props correctly
 
-3. Kör ALLTID efter ny fil:
+3. ALWAYS run after new file:
    npm run build
-   
-   Om build misslyckas → fixa INNAN commit
+
+   If build fails → fix BEFORE commit
 ```
 
 ---
 
-## Fas 5: HARD STOP Verifiering
+## Phase 5: HARD STOP Verification
 
-**Vid HARD STOP mellan epics - gör ALLA dessa steg:**
+**In case of HARD STOP between epics - do ALL these steps:**
 
 ```bash
-# 1. Build-verifiering
+# 1. Build verification
 npm run build
-# Om fel → fixa alla errors
+# If errors → fix all errors
 
-# 2. Starta dev-server och testa manuellt
+# 2. Start dev-server and test manually
 npm run dev &
 sleep 5
 curl -s http://localhost:5173 | head -20
-# Verifiera att sidan laddar
+# Verify the page loads
 
-# 3. Kolla att alla routes fungerar
+# 3. Check that all routes work
 # - / (redirect)
 # - /login
-# - /register  
-# - /todos (om auth klar)
+# - /register
+# - /todos (if auth complete)
 
-# 4. Om Supabase används - verifiera anslutning
-# Skapa testanvändare om möjligt
+# 4. If Supabase is used - verify connection
+# Create test user if possible
 ```
 
-**HARD STOP är INTE godkänd förrän:**
-- [ ] `npm run build` lyckas utan fel
-- [ ] Appen startar och visar rätt sida
-- [ ] Grundläggande navigation fungerar
+**HARD STOP is NOT authorized until:**
+- [ ] `npm run build` succeeds without error
+- [ ] App starts and displays the correct page
+- [ ] Basic navigation works
 
 ---
 
-## Fas 6: Commit & Logga
+## Phase 6: Commit & Log in
 
 ```bash
-# 1. Markera task klar i IMPLEMENTATION_PLAN.md
-# 2. Logga i Progress-sektionen
+# 1. Mark task complete in IMPLEMENTATION_PLAN.md
+# 2. Log in Progress section
 # 3. Commit
-git add -A && git commit -m "feat: {beskrivning}"
+git add -A && git commit -m "feat: {description}"
 ```
 
 ---
 
-## Supabase Setup (Om i PRD)
+## Supabase Setup (About in PRD)
 
-**Om projektet använder Supabase - gör detta i E1:**
+**If the project uses Supabase - do this in E1:**
 
 ```bash
-# 1. Initiera Supabase
-cd {projekt}
+# 1. Initialize Supabase
+cd {project}
 supabase init
 
-# 2. Skapa migration från schema
+# 2. Create migration from schema
 mkdir -p supabase/migrations
 cp supabase/schema.sql supabase/migrations/$(date +%Y%m%d%H%M%S)_init.sql
 
-# 3. Starta lokal Supabase (kräver Docker)
+# 3. Start local Supabase (requires Docker)
 supabase start
 
-# 4. Hämta credentials och uppdatera .env
+# 4. Get credentials and update .env
 supabase status
-# Kopiera API URL och anon key till .env:
+# Copy API URL and anon key to .env:
 # VITE_SUPABASE_URL=http://127.0.0.1:54321
-# VITE_SUPABASE_ANON_KEY=<från status>
+# VITE_SUPABASE_ANON_KEY=<from status>
 
-# 5. Kör migrations
+# 5. Run migrations
 supabase db reset
 
-# 6. Verifiera
+# 6. Verify
 curl http://127.0.0.1:54321/rest/v1/ -H "apikey: <anon_key>"
 ```
 
-**VIKTIGT:** Supabase måste vara igång och .env konfigurerad INNAN auth-tasks börjar.
+**IMPORTANT:** Supabase must be running and .env configured BEFORE auth-tasks start.
 
 ---
 
-## Parallell Build Integration
+## Parallel Build Integration
 
-**Efter parallell körning med worktrees:**
+**After parallel run with worktrees:**
 
 ```
-1. Varje worktree bygger isolerade komponenter
-2. Vid merge → kontrollera att ALLA exporter finns
-3. Uppdatera pages att använda nya komponenter
-4. Kör full build-verifiering
+1. Each worktree builds isolated components
+2. On merge → verify that ALL exports exist
+3. Update pages to use new components
+4. Run full build verification
 
-Vanliga problem efter merge:
-- Saknade exports i index.ts
-- Props som inte skickas korrekt
-- Hooks som inte importeras i pages
+Common problems after merge:
+- Missing exports in index.ts
+- Props not passed correctly
+- Hooks not imported in pages
 ```
 
 ---
@@ -169,28 +169,28 @@ Vanliga problem efter merge:
 ## Guardrails
 
 ```
-99999. EN task per iteration
-99998. Sök före du skapar
-99997. Endast 1 subagent för build/test
-99996. Commit efter varje task
-99995. HARD STOP = FULL verifiering (build + manuell test)
-99994. Stuck efter 3 försök → dokumentera i IMPLEMENTATION_PLAN.md
-99993. Ny komponent = uppdatera index.ts DIREKT
-99992. Supabase-projekt = starta lokal instans i E1
+99999. ONE task per iteration
+99998. Search before you create
+99997. Only 1 subagent for build/test
+99996. Commit after each task
+99995. HARD STOP = FULL verification (build + manual test)
+99994. Stuck after 3 attempts → document in IMPLEMENTATION_PLAN.md
+99993. New component = update index.ts IMMEDIATELY
+99992. Supabase project = start local instance in E1
 ```
 
 ---
 
 ## Completion
 
-När ALLA tasks klara:
+When ALL tasks are completed:
 
 ```bash
-# Final verifiering
+# Final verification
 npm run build && npm run dev &
 sleep 5
 
-# Testa alla flöden
-# Om allt fungerar:
+# Test all flows
+# If everything works:
 echo "BUILD_DONE"
 ```

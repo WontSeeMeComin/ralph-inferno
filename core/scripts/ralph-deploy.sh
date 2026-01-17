@@ -3,20 +3,20 @@
 # ralph-handoff.sh - Complete pipeline: Discovery → VM → Ralph
 #
 # Flow:
-#   1. Run discovery locally (Claude Code)
-#   2. Generate PRD + Skills
-#   3. Push to VM
-#   4. Start Ralph on VM
-#   5. Monitor progress
-#   6. Pull results when done
+# 1. run discovery locally (Claude Code)
+# 2. generate PRD + Skills
+# 3. push to VM
+# 4. start ralph on VM
+# 5. monitor progress
+# Pull results when done
 #
 # Usage:
-#   ./ralph-handoff.sh <project-name> [options]
+# ./ralph-handoff.sh <project-name> [options]
 #
 # Options:
-#   --input <file>     Start from meeting transcript
-#   --skip-discovery   Skip discovery, use existing project
-#   --watch            Watch VM progress after handoff
+# --input <file> Start from meeting transcript
+# --skip-discovery Skip discovery, use existing project
+# --watch Watch VM progress after handoff
 #
 
 set -euo pipefail
@@ -46,15 +46,15 @@ if [ -z "$PROJECT_NAME" ]; then
     echo "Usage: $0 <project-name> [options]"
     echo ""
     echo "Options:"
-    echo "  --input <file>     Start from meeting transcript"
-    echo "  --skip-discovery   Skip discovery, use existing project"
-    echo "  --watch            Watch VM progress after handoff"
-    echo "  --overnight        Nattläge: auto-stop VM, notify when done"
+    echo " --input <file> Start from meeting transcript"
+    echo " --skip-discovery Skip discovery, use existing project"
+    echo " --watch Watch VM progress after handoff"
+    echo " --overnight Night mode: auto-stop VM, notify when done"
     echo ""
     echo "Examples:"
-    echo "  $0 my-app                        # Full pipeline"
-    echo "  $0 my-app --input meeting.md     # From transcript"
-    echo "  $0 my-app --overnight            # Fire and forget"
+    echo " $0 my-app # Full pipeline"
+    echo " $0 my-app --input meeting.md # From transcript"
+    echo " $0 my-app --overnight # Fire and forget"
     exit 1
 fi
 
@@ -104,23 +104,23 @@ cat << 'EOF'
   ║     ██║  ██║██║  ██║███████╗██║     ██║  ██║              ║
   ║     ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚═╝     ╚═╝  ╚═╝              ║
   ║                                                           ║
-  ║          H A N D O F F   P I P E L I N E                  ║
+  ║ H A N D O F F P I P E L I N E ║
   ║                                                           ║
-  ║     Discovery (local) → VM (cloud) → Ralph                ║
+  ║ Discovery (local) → VM (cloud) → Ralph ║
   ║                                                           ║
   ╚═══════════════════════════════════════════════════════════╝
 EOF
 echo -e "${NC}"
 
-echo -e "Projekt: ${GREEN}$PROJECT_NAME${NC}"
+echo -e "Project: ${GREEN}$PROJECT_NAME${NC}"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-# STEG 1: DISCOVERY (lokal)
+# STEP 1: DISCOVERY (local)
 # ═══════════════════════════════════════════════════════════════
 if [ "$SKIP_DISCOVERY" = false ]; then
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}  STEG 1: DISCOVERY (lokal)${NC}"
+    echo -e "${CYAN} STEP 1: DISCOVERY (local)${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
@@ -132,21 +132,21 @@ if [ "$SKIP_DISCOVERY" = false ]; then
     "$SCRIPT_DIR/ralph-discover.sh" $DISCOVER_ARGS
 
     echo ""
-    echo -e "${GREEN}✓ Discovery klar${NC}"
+    echo -e "${GREEN}✓ Discovery ready${NC}"
 fi
 
 # Verify project exists
 if [ ! -d "$PROJECT_DIR" ]; then
-    echo -e "${RED}Projekt saknas: $PROJECT_DIR${NC}"
+    echo -e "${RED}Project missing: $PROJECT_DIR${NC}"
     exit 1
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# STEG 2: VALIDERA PROJEKT
+# STEP 2: VALIDATE PROJECT
 # ═══════════════════════════════════════════════════════════════
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}  STEG 2: VALIDERA PROJEKT${NC}"
+echo -e "${CYAN} STEP 2: VALIDATE PROJECT${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
@@ -159,53 +159,53 @@ REQUIRED_FILES=(
 MISSING=0
 for file in "${REQUIRED_FILES[@]}"; do
     if [ -f "$PROJECT_DIR/$file" ]; then
-        echo -e "  ${GREEN}✓${NC} $file"
+        echo -e " ${GREEN}✓${NC} $file"
     else
-        echo -e "  ${RED}✗${NC} $file (saknas)"
+        echo -e " ${RED}✗${NC} $file (missing)"
         MISSING=$((MISSING + 1))
     fi
 done
 
 # Count specs
 SPEC_COUNT=$(ls -1 "$PROJECT_DIR/specs"/*.md 2>/dev/null | wc -l | tr -d ' ')
-echo -e "  ${BLUE}○${NC} Specs: $SPEC_COUNT"
+echo -e " ${BLUE}○${NC} Specs: $SPEC_COUNT"
 
 if [ $MISSING -gt 0 ]; then
     echo ""
-    echo -e "${RED}Saknade filer. Kör discovery först.${NC}"
+    echo -e "${RED}Missing files. Run discovery first.${NC}"
     exit 1
 fi
 
 # ═══════════════════════════════════════════════════════════════
-# STEG 3: PUSH TILL VM
+# STEP 3: PUSH TO VM
 # ═══════════════════════════════════════════════════════════════
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}  STEG 3: PUSH TILL VM${NC}"
+echo -e "${CYAN} STEP 3: PUSH TO VM${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
 # Start VM if not running
-echo -e "${BLUE}Startar VM...${NC}"
+echo -e "${BLUE}Start VM...${NC}"
 "$SCRIPT_DIR/vm-sync.sh" start 2>/dev/null || true
 sleep 5
 
 # Push project
-echo -e "${BLUE}Pushar projekt till VM...${NC}"
+echo -e "${BLUE}Push project to VM...${NC}"
 "$SCRIPT_DIR/vm-sync.sh" push "$PROJECT_DIR"
 
-echo -e "${GREEN}✓ Projekt uppladdad till VM${NC}"
+echo -e "${GREEN}✓ Project uploaded to VM${NC}"
 
 # ═══════════════════════════════════════════════════════════════
-# STEG 4: STARTA RALPH PÅ VM
+# STEP 4: START RALPH ON VM
 # ═══════════════════════════════════════════════════════════════
 echo ""
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${CYAN}  STEG 4: STARTA RALPH PÅ VM${NC}"
+echo -e "${CYAN} STEP 4: START RALPH ON VM${NC}"
 echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
 
-echo -e "${BLUE}Startar Ralph på VM...${NC}"
+echo -e "${BLUE}Starting ralph on VM...${NC}"
 echo ""
 
 # Run Ralph on VM in background (nohup)
@@ -216,11 +216,11 @@ echo -e "${GREEN}✓ Ralph startat (PID: $RALPH_PID)${NC}"
 echo ""
 
 # ═══════════════════════════════════════════════════════════════
-# STEG 5: MODE-SPECIFIC HANDLING
+# STEP 5: MODE-SPECIFIC HANDLING
 # ═══════════════════════════════════════════════════════════════
 if [ "$OVERNIGHT_MODE" = true ]; then
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}  OVERNIGHT MODE${NC}"
+    echo -e "${CYAN} OVERNIGHT MODE${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
@@ -229,17 +229,17 @@ if [ "$OVERNIGHT_MODE" = true ]; then
     # Create overnight wrapper script on VM
     OVERNIGHT_SCRIPT="#!/bin/bash
 cd ~/workspace
-echo 'Ralph overnight started: \$(date)' > ralph-overnight.log
+echo 'ralph overnight started: \$(date)' > ralph-overnight.log
 
 # Run Ralph
 ./scripts/ralph.sh specs/*.md >> ralph-overnight.log 2>&1
 EXIT_CODE=\$?
 
-echo 'Ralph finished: \$(date)' >> ralph-overnight.log
+echo 'ralph finished: \$(date)' >> ralph-overnight.log
 echo 'Exit code: '\$EXIT_CODE >> ralph-overnight.log
 
 # Notify
-curl -s -d \"Ralph klar: $PROJECT_NAME (exit: \$EXIT_CODE)\" https://ntfy.sh/$NTFY_TOPIC || true
+curl -s -d \"ralph finished: $PROJECT_NAME (exit: \$EXIT_CODE)\" https://ntfy.sh/$NTFY_TOPIC || true
 
 # Generate summary
 SPECS_DONE=\$(grep -c 'DONE' ralph-overnight.log || echo 0)
@@ -258,59 +258,59 @@ sudo shutdown -h +5 'Ralph complete. VM stopping in 5 minutes.'
     "$SCRIPT_DIR/vm-sync.sh" ssh "cd ~/workspace && nohup ./overnight.sh > /dev/null 2>&1 &"
 
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}  OVERNIGHT HANDOFF KLAR!${NC}"
+    echo -e "${GREEN} OVERNIGHT HANDOFF READY!${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "Ralph kör nu autonomt på VM."
+    echo -e "Ralph is now running autonomously on the VM."
     echo ""
-    echo -e "${YELLOW}Vad händer:${NC}"
-    echo -e "  1. Ralph kör alla specs"
-    echo -e "  2. Du får notification när klart (ntfy.sh/$NTFY_TOPIC)"
-    echo -e "  3. VM stoppas automatiskt (sparar pengar)"
+    echo -e "${YELLOW}What's happening:${NC}"
+    echo -e " 1. Ralph is running all specs"
+    echo -e " 2. You will get notification when done (ntfy.sh/$NTFY_TOPIC)"
+    echo -e " 3. VM is automatically stopped (saves money)"
     echo ""
-    echo -e "${YELLOW}Imorgon:${NC}"
-    echo -e "  ${CYAN}./scripts/vm-sync.sh start${NC}        # Starta VM"
-    echo -e "  ${CYAN}./scripts/vm-sync.sh pull $PROJECT_NAME${NC}  # Hämta resultat"
-    echo -e "  ${CYAN}cat $PROJECT_NAME/ralph-overnight.log${NC}    # Se logg"
+    echo -e "${YELLOW}Tomorrow:${NC}"
+    echo -e " ${CYAN}./scripts/vm-sync.sh start${NC} # Start VM"
+    echo -e " ${CYAN}./scripts/vm-sync.sh pull $PROJECT_NAME${NC} # Get results"
+    echo -e " ${CYAN}cat $PROJECT_NAME/ralph-overnight.log${NC} # View log"
     echo ""
     echo -e "${BLUE}Sov gott!${NC}"
     echo ""
 
 elif [ "$WATCH_MODE" = true ]; then
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${CYAN}  WATCH MODE${NC}"
+    echo -e "${CYAN} WATCH MODE${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${YELLOW}Watching VM progress... (Ctrl+C för att avsluta)${NC}"
+    echo -e "${YELLOW}Watching VM progress... (Ctrl+C to exit)${NC}"
     echo ""
 
     # Wait for Ralph to finish
     wait $RALPH_PID || true
 
     echo ""
-    echo -e "${GREEN}✓ Ralph klar!${NC}"
+    echo -e "${GREEN}✓ Ralph ready!${NC}"
     echo ""
 
     # Pull results
-    echo -e "${BLUE}Hämtar resultat...${NC}"
+    echo -e "${BLUE}Pulling results...${NC}"
     "$SCRIPT_DIR/vm-sync.sh" pull "$PROJECT_DIR"
 
     # Stop VM to save money
-    read -p "Stoppa VM för att spara pengar? [Y/n]: " STOP_VM
+    read -p "Stop VM to save money? [Y/n]: " STOP_VM
     STOP_VM=${STOP_VM:-y}
     if [[ "$STOP_VM" =~ ^[Yy] ]]; then
         "$SCRIPT_DIR/vm-sync.sh" stop
     fi
 else
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-    echo -e "${GREEN}  HANDOFF KLAR!${NC}"
+    echo -e "${GREEN} HANDOFF READY!${NC}"
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "Ralph kör nu på VM i bakgrunden."
+    echo -e "Ralph is now running on VM in the background."
     echo ""
-    echo -e "${YELLOW}Kommandon:${NC}"
-    echo -e "  ${CYAN}./scripts/vm-sync.sh ssh${NC}           # SSH till VM"
-    echo -e "  ${CYAN}./scripts/vm-sync.sh pull $PROJECT_NAME${NC}  # Hämta resultat"
-    echo -e "  ${CYAN}./scripts/vm-sync.sh stop${NC}          # Stoppa VM"
+    echo -e "${YELLOW}Commands:${NC}"
+    echo -e " ${CYAN}./scripts/vm-sync.sh ssh${NC} # SSH to VM"
+    echo -e " ${CYAN}./scripts/vm-sync.sh pull $PROJECT_NAME${NC} # Get results"
+    echo -e " ${CYAN}./scripts/vm-sync.sh stop${NC} # Stop VM"
     echo ""
 fi

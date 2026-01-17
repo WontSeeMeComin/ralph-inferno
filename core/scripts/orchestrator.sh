@@ -2,12 +2,12 @@
 # =============================================================================
 # orchestrator.sh - Middle Loop Orchestrator
 #
-# Kör hela spec-cykeln med automatisk self-healing:
-#   specs → build → E2E test → CR vid fel → retry
+# Run the full spec cycle with automatic self-healing:
+# specs → build → E2E test → CR on error → retry
 #
 # Usage:
-#   ./orchestrator.sh              # Kör alla specs med test-loop
-#   ./orchestrator.sh --max=5      # Max 5 iterationer
+# ./orchestrator.sh # Run all specs with test loop
+# ./orchestrator.sh --max=5 # Max 5 iterations
 #
 # =============================================================================
 
@@ -67,14 +67,14 @@ start_services() {
 # Main orchestration loop
 main() {
     log "${CYAN}╔════════════════════════════════════════╗${NC}"
-    log "${CYAN}║      RALPH ORCHESTRATOR STARTING       ║${NC}"
+    log "${CYAN}║ RALPH ORCHESTRATOR STARTING ║${NC}"
     log "${CYAN}╚════════════════════════════════════════╝${NC}"
 
     # Verify specs exist before starting
     local total_specs=$(ls -1 specs/*.md 2>/dev/null | grep -v "^specs/CR-" | wc -l | tr -d ' ')
     if [ "$total_specs" -eq 0 ]; then
-        log "${RED}Inga specs hittades i specs/*.md${NC}"
-        notify "❌ Orchestrator: Inga specs hittades"
+        log "${RED}No specs found in specs/*.md${NC}"
+        notify "❌ Orchestrator: No specs found"
         return 1
     fi
 
@@ -95,7 +95,7 @@ main() {
         if all_specs_done; then
             log ""
             log "${GREEN}╔════════════════════════════════════════╗${NC}"
-            log "${GREEN}║         ✅ ALL SPECS COMPLETE          ║${NC}"
+            log "${GREEN}║ ✅ ALL SPECS COMPLETE ║${NC}"
             log "${GREEN}╚════════════════════════════════════════╝${NC}"
             notify "✅ Orchestrator complete! All specs done in $ITERATION iteration(s)"
             return 0
@@ -113,7 +113,7 @@ main() {
     # Max iterations reached
     log ""
     log "${RED}╔════════════════════════════════════════╗${NC}"
-    log "${RED}║    ⚠️  MAX ITERATIONS REACHED          ║${NC}"
+    log "${RED}║ ⚠️ MAX ITERATIONS REACHED ║${NC}"
     log "${RED}╚════════════════════════════════════════╝${NC}"
 
     # Show what's still incomplete
@@ -121,7 +121,7 @@ main() {
     log "Incomplete specs:"
     ls -1 specs/*.md 2>/dev/null | while read spec; do
         local name=$(basename "$spec" .md)
-        [ ! -f ".spec-checksums/${name}.md5" ] && echo "  ❌ $name"
+        [ ! -f ".spec-checksums/${name}.md5" ] && echo " ❌ $name"
     done | grep -v "CR-"
 
     notify "⚠️ Orchestrator stopped after $MAX_ITERATIONS iterations. Manual intervention needed."

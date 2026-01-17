@@ -2,7 +2,7 @@
 
 ## ralph.sh
 
-The main entry point for running Ralph on the VM.
+The main entry point for running ralph on the VM.
 
 ### Basic Usage
 
@@ -26,9 +26,9 @@ To verify your configured inference provider (LM Studio/Ollama/OpenRouter/Claude
 
 ## Agent Mode (run specs without Claude)
 
-By default, Ralph executes specs using **Claude Code CLI**.
+By default, ralph executes specs using **Claude Code CLI**.
 
-To run spec execution via the built-in local/OpenRouter agent loop instead:
+To run specs execution via the built-in local/OpenRouter agent loop instead:
 
 ```bash
 export RALPH_AGENT_MODE=llm
@@ -101,11 +101,11 @@ This enables `scripts/agent-run.mjs` for the inner loop.
 When running `/ralph:deploy`, you choose the mode:
 
 ```
-Vilken mode vill du köra Ralph i?
+Which mode do you want to run Ralph in?
 
 1. Standard (E2E + auto-CR) - Recommended
-2. Quick (bara build)
-3. Inferno (allt + parallel)
+2. Quick (build only)
+3. Inferno (everything + parallel)
 ```
 
 ## ralph-inferno CLI
@@ -118,7 +118,7 @@ npx ralph-inferno update    # Update core files, keep config
 ### Install Options
 
 During `install`, you'll be asked:
-1. Language (en, sv, es, de, fr, zh)
+1. language (en, sv, es, de, fr, zh)
 2. Cloud provider (hcloud, gcloud, doctl, aws, ssh)
 3. VM name and region
 4. ntfy.sh notifications (optional)

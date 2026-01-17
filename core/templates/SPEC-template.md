@@ -1,40 +1,40 @@
 # {SPEC_NUMBER}-{spec-name}
 
 > Epic: {EPIC_NAME}
-> Dependencies: {lista tidigare specs som måste vara klara}
+> Dependencies: {list previous specs that must be ready}
 
 ---
 
-## Mål
+## Target
 
-{Kort beskrivning av vad denna spec ska åstadkomma}
+{Brief description of what this spec is intended to achieve}
 
 ---
 
 ## Functional Requirements (FR)
 
-### FR1: {Krav 1}
-{Detaljerad beskrivning}
+### FR1: {Requirement 1}
+{Detailed description}
 
 **Acceptance Criteria:**
-- [ ] {Testbart kriterium 1}
-- [ ] {Testbart kriterium 2}
+- [ ] {Testable Criterion 1}
+- [ ] {Testable Criterion 2}
 
-### FR2: {Krav 2}
-{Detaljerad beskrivning}
+### FR2: {Requirement 2}
+{Detailed Description}
 
 **Acceptance Criteria:**
-- [ ] {Testbart kriterium}
+- [ ] {Testable Criteria}
 
 ---
 
 ## Technical Implementation
 
-### Filer att skapa/ändra
-- `src/path/to/file.ts` - {vad}
-- `src/path/to/other.ts` - {vad}
+### Files to create/modify
+- `src/path/to/file.ts` - {what}
+- `src/path/to/other.ts` - {what}
 
-### Datamodell (om relevant)
+### Data model (if relevant)
 ```typescript
 interface Example {
   id: string;
@@ -42,53 +42,53 @@ interface Example {
 }
 ```
 
-### API/Endpoints (om relevant)
-- `GET /api/resource` - {beskrivning}
-- `POST /api/resource` - {beskrivning}
+### API/Endpoints (if applicable)
+- `GET /api/resource` - {description}
+- `POST /api/resource` - {description}
 
 ---
 
 ## E2E Test
 
-> ⚠️ KRITISKT: Skriv Playwright-test som verifierar funktionaliteten
+> ⚠️ CRITICAL: Write Playwright tests that verify functionality
 
-**Testfil:** `e2e/{spec-name}.spec.ts`
+**Test file:** `e2e/{spec-name}.spec.ts`
 
-**Tester att skriva:**
+**Tests to write:**
 ```typescript
-test('{beskrivning av test 1}', async ({ page }) => {
-  // 1. {Steg 1}
-  // 2. {Steg 2}
-  // 3. Verifiera {resultat}
+test('{description of test 1}', async ({ page }) => {
+  // 1. {Step 1}
+  // 2. {Step 2}
+  // 3. Verify {result}
 });
 
-test('{beskrivning av test 2}', async ({ page }) => {
+test('{description of test 2}', async ({ page }) => {
   // ...
 });
 ```
 
-**Vad testet ska verifiera:**
-- [ ] {User flow fungerar}
-- [ ] {Edge case hanteras}
-- [ ] {Error state visas korrekt}
+**What the test should verify:**
+- [ ] {User flow works}
+- [ ] {Edge case is handled}
+- [ ] {Error state is displayed correctly}
 
 ---
 
 ## Design Requirements
 
-> Följ Design System från PRD.md
+> Follow Design System from PRD.md
 
-- [ ] Använd korrekta färg-tokens
-- [ ] Följ spacing-scale
-- [ ] Responsiv (mobile-first)
-- [ ] Tillgänglig (keyboard, screen reader)
+- [ ] Use correct color tokens
+- [ ] Follow spacing-scale
+- [ ] Responsive (mobile-first)
+- [ ] Accessible (keyboard, screen reader)
 
 ---
 
-## Klart när
+## Ready when
 
-- [ ] Alla FR implementerade
-- [ ] E2E-tester skrivna och passerar
-- [ ] `npm run build` passerar
-- [ ] Inga TypeScript-errors
-- [ ] Följer design system
+- [ ] All FR implemented
+- [ ] E2E tests written and passing
+- [ ] `npm run build` passes
+- [ ] No TypeScript errors
+- [ ] Follows design system

@@ -1,19 +1,19 @@
 #!/bin/bash
 #
-# requirements.sh - Kolla och installera dependencies för react-supabase stack
+# requirements.sh - Check and install dependencies for react-supabase stack
 #
 # Usage:
-#   ./requirements.sh [--check|--install|--fix]
+# ./requirements.sh [--check|--install|--fix]
 #
 # Modes:
-#   --check   Bara kolla, returnera exit code (default)
-#   --install Installera saknade dependencies
-#   --fix     Samma som --install
+# --check Just check, return exit code (default)
+# --install Install missing dependencies
+# --fix Same as --install
 #
 
 set -uo pipefail
 
-# Färger
+# colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -88,18 +88,18 @@ check_required() {
 }
 
 # =============================================================================
-# OPTIONAL DEPENDENCIES (för full funktionalitet)
+# OPTIONAL DEPENDENCIES (for full functionality)
 # =============================================================================
 check_optional() {
     log ""
     log "${BLUE}=== OPTIONAL ===${NC}"
 
-    # Docker (för lokal Supabase)
+    # Docker (for local Supabase)
     if command -v docker &>/dev/null; then
         local docker_ver=$(docker --version | awk '{print $3}' | tr -d ',')
         ok "Docker $docker_ver"
     else
-        warn "Docker - MISSING (behövs för lokal Supabase)"
+        warn "Docker - MISSING (needed for local Supabase)"
     fi
 
     # Supabase CLI
@@ -110,11 +110,11 @@ check_optional() {
         warn "Supabase CLI - MISSING"
     fi
 
-    # Playwright (för E2E)
+    # Playwright (for E2E)
     if npx playwright --version &>/dev/null 2>&1; then
         ok "Playwright installed"
     else
-        warn "Playwright - MISSING (behövs för E2E-tester)"
+        warn "Playwright - MISSING (needed for E2E tests)"
     fi
 }
 
@@ -133,7 +133,7 @@ check_auth() {
         fail "gh: NOT AUTHENTICATED"
     fi
 
-    # Claude auth (optional if agent mode=llm)
+    # Claude auth (optional if agent mode= LLM)
     if command -v claude &>/dev/null 2>&1; then
         if claude auth status &>/dev/null 2>&1; then
             ok "Claude: Authenticated"
@@ -173,15 +173,15 @@ install_missing() {
                 npx playwright install && ok "Playwright installed" || warn "Playwright install failed"
                 ;;
             *"gh:"*|*"Claude:"*)
-                log "${YELLOW}$dep kräver manuell autentisering:${NC}"
-                if [[ "$dep" == *"gh:"* ]]; then
-                    log "  gh auth login"
+                log "${YELLOW}$dep requires manual authentication:${NC}"
+                if [["$dep" == *"gh:"* ]]; then
+                    log "gh auth login"
                 else
-                    log "  claude login"
+                    log " claude login"
                 fi
                 ;;
             *"Node.js"*|*"npm"*|*"git"*|*"gh CLI"*|*"Claude CLI"*|*"Docker"*)
-                log "${YELLOW}$dep måste installeras manuellt${NC}"
+                log "${YELLOW}$dep must be installed manually${NC}"
                 ;;
         esac
     done
@@ -193,7 +193,7 @@ install_missing() {
 main() {
     log ""
     log "${BLUE}╔═══════════════════════════════════════════════════════════╗${NC}"
-    log "${BLUE}║       REQUIREMENTS CHECK: react-supabase                  ║${NC}"
+    log "${BLUE}║ REQUIREMENTS CHECK: react-supabase ║${NC}"
     log "${BLUE}╚═══════════════════════════════════════════════════════════╝${NC}"
     log ""
 
@@ -208,7 +208,7 @@ main() {
     if [ ${#MISSING[@]} -eq 0 ]; then
         log ""
         log "${GREEN}╔═══════════════════════════════════════════════════════════╗${NC}"
-        log "${GREEN}║                    ✅ VM READY                             ║${NC}"
+        log "${GREEN}║ ✅ VM READY ║${NC}"
         log "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
         log ""
         return 0
@@ -216,14 +216,14 @@ main() {
         log ""
         log "${RED}Missing (${#MISSING[@]}):${NC}"
         for m in "${MISSING[@]}"; do
-            log "  - $m"
+            log " - $m"
         done
 
         if [ ${#WARNINGS[@]} -gt 0 ]; then
             log ""
             log "${YELLOW}Warnings (${#WARNINGS[@]}):${NC}"
             for w in "${WARNINGS[@]}"; do
-                log "  - $w"
+                log " - $w"
             done
         fi
 
@@ -245,13 +245,13 @@ main() {
                 log ""
                 log "${RED}Still missing (requires manual action):${NC}"
                 for m in "${MISSING[@]}"; do
-                    log "  - $m"
+                    log " - $m"
                 done
                 return 1
             fi
         else
             log ""
-            log "Kör med ${CYAN}--install${NC} för att fixa automatiskt"
+            log "Run with ${CYAN}--install${NC} to fix automatically"
             return 1
         fi
     fi

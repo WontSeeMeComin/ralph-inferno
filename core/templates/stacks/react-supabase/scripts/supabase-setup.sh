@@ -1,7 +1,7 @@
 #!/bin/bash
-# supabase-setup.sh - Automatisk Supabase-setup för Ralph-projekt
+# supabase-setup.sh - Automatic Supabase setup for ralph projects
 #
-# Kör detta i början av E1 om projektet använder Supabase
+# Run this at the beginning of E1 if the project uses Supabase
 
 set -e
 
@@ -11,34 +11,34 @@ cd "$PROJECT_DIR"
 echo "🔧 Supabase Setup"
 echo "================="
 
-# Kolla om Supabase redan är initierat
+# Check if Supabase is already initialized
 if [ -d "supabase" ] && [ -f "supabase/config.toml" ]; then
-    echo "✅ Supabase redan initierat"
+    echo "✅ Supabase already initialized"
 else
-    echo "📦 Initierar Supabase..."
+    echo "📦 Initializing Supabase..."
     supabase init
 fi
 
-# Kolla om Docker körs
+# Check if Docker is running
 if ! docker info > /dev/null 2>&1; then
-    echo "❌ Docker körs inte. Starta Docker först."
+    echo "❌ Docker is not running. Start Docker first."
     exit 1
 fi
 
-# Kolla om Supabase redan körs
+# Check if Supabase is already running
 if supabase status > /dev/null 2>&1; then
-    echo "✅ Supabase körs redan"
+    echo "✅ Supabase is already running"
 else
-    echo "🚀 Startar lokal Supabase..."
+    echo "🚀 Starting local Supabase..."
     supabase start
 fi
 
-# Hämta credentials
+# Get credentials
 echo ""
 echo "📋 Supabase Status:"
 supabase status
 
-# Extrahera credentials
+# Extract credentials
 API_URL=$(supabase status | grep "API URL" | awk {print })
 ANON_KEY=$(supabase status | grep "anon key" | awk {print })
 
@@ -50,48 +50,48 @@ if [ -z "$ANON_KEY" ]; then
     ANON_KEY=$(supabase status | grep "Publishable" | awk {print })
 fi
 
-# Skapa/uppdatera .env
+# Create/update .env
 echo ""
-echo "📝 Uppdaterar .env..."
+echo "📝 Updating .env..."
 
 if [ -f ".env" ]; then
-    # Backup befintlig
+    # Backup existing
     cp .env .env.backup
-    # Ta bort gamla Supabase-variabler
+    # Delete old Supabase variables
     grep -v "SUPABASE" .env > .env.tmp || true
     mv .env.tmp .env
 fi
 
 cat >> .env << ENVEOF
-VITE_SUPABASE_URL=$API_URL
+QUICK_SUPABASE_URL=$API_URL
 VITE_SUPABASE_ANON_KEY=$ANON_KEY
 ENVEOF
 
-echo "✅ .env uppdaterad med:"
-echo "   VITE_SUPABASE_URL=$API_URL"
-echo "   VITE_SUPABASE_ANON_KEY=$ANON_KEY"
+echo "✅ .env updated with:"
+echo "VITE_SUPABASE_URL=$API_URL"
+echo "VITE_SUPABASE_ANON_KEY=$ANON_KEY"
 
-# Kör migrations om schema finns
+# Run migration if schema exists
 if [ -f "supabase/schema.sql" ]; then
     echo ""
-    echo "📊 Kör databasmigrering..."
+    echo "📊 Run database migration..."
     
-    # Skapa migration-fil om den inte finns
+    # Create migration file if it does not exist
     MIGRATION_FILE="supabase/migrations/$(date +%Y%m%d%H%M%S)_init.sql"
     if [ ! -d "supabase/migrations" ] || [ -z "$(ls supabase/migrations/*.sql 2>/dev/null)" ]; then
         mkdir -p supabase/migrations
         cp supabase/schema.sql "$MIGRATION_FILE"
-        echo "   Skapade migration: $MIGRATION_FILE"
+        echo " Created migration: $MIGRATION_FILE"
     fi
     
     supabase db reset
-    echo "✅ Databas migrerad"
+    echo "✅ Database migrated"
 fi
 
 echo ""
-echo "🎉 Supabase-setup klar!"
+echo "🎉 Supabase setup ready!"
 echo ""
-echo "Nästa steg:"
-echo "  - Starta din app: npm run dev"
-echo "  - Supabase Studio: http://127.0.0.1:54323"
-echo "  - Mailpit (för auth-emails): http://127.0.0.1:54324"
+echo "Next steps:"
+echo " - Launch your app: npm run dev"
+echo " - Supabase Studio: http://127.0.0.1:54323"
+echo " - Mailpit (for auth emails): http://127.0.0.1:54324"

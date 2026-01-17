@@ -1,37 +1,37 @@
 # /ralph:preflight - Verify Requirements Before Dev
 
-Generera och verifiera preflight checklist innan development startar.
+Generate and verify preflight checklist before development starts.
 
 ## Usage
 ```
 /ralph:preflight
-/ralph:preflight --check    # Verifiera befintlig PREFLIGHT.md
+/ralph:preflight --check    # Verify existing PREFLIGHT.md
 ```
 
 ## Prerequisites
-- `docs/PRD.md` måste finnas (kör `/ralph:idea` eller `/ralph:discover` först)
+- `docs/PRD.md` must exist (run `/ralph:idea` or `/ralph:discover` first)
 
 ## Instructions
 
-**STEG 1: LÄS PRD**
+**STEP 1: READ PRD**
 
-Läs `docs/PRD.md` och identifiera:
-1. Alla externa integrationer
-2. Alla API:er som behövs
-3. Teknisk stack och hosting
-4. Compliance-krav
+Read `docs/PRD.md` and identify:
+1. all external integrations
+2. all APIs needed
+3. technical stack and hosting
+4. compliance requirements
 
-**STEG 2: GENERERA PREFLIGHT.md**
+**STEP 2: GENERATE PREFLIGHT.md
 
-Baserat på PRD, skapa `docs/PREFLIGHT.md` med:
+Based on the PRD, create `docs/PREFLIGHT.md` with:
 
 1. **Accounts Required**
-   - Lista alla externa tjänster
-   - Inkludera signup-URLs
+   - List all external services
+   - Include signup URLs
 
 2. **API Keys Needed**
-   - Lista alla miljövariabler
-   - Instruktioner för hur man får dem
+   - List all environment variables
+   - Instructions on how to get them
 
 3. **Environment Setup**
    - VM requirements
@@ -39,21 +39,21 @@ Baserat på PRD, skapa `docs/PREFLIGHT.md` med:
    - Local config
 
 4. **Manual Setup Steps**
-   - Webhooks som behöver konfigureras
+   - Webhooks that need to be configured
    - OAuth redirect URLs
-   - DNS om det behövs
+   - DNS if needed
 
 5. **Cost Estimate**
-   - Månadskostnad per tjänst
+   - Monthly cost per service
 
-**STEG 3: VISA FÖR ANVÄNDAREN**
+**STEP 3: SHOW TO USER**
 
-Presentera checklistan och be användaren bekräfta varje punkt:
+Present the checklist and ask the user to confirm each item:
 
 ```
 📋 PREFLIGHT CHECKLIST
 
-Följande måste vara klart innan Ralph kan bygga:
+The following must be ready before Ralph can build:
 
 ACCOUNTS:
   [ ] Stripe test account
@@ -72,33 +72,33 @@ MANUAL SETUP:
 
 ---
 
-Är allt ovan klart? (ja/nej)
+Is everything above complete? (yes/no)
 ```
 
-**STEG 4: GATE CHECK**
+**STEP 4: GATE CHECK**
 
-Om användaren svarar "ja":
+If the user answers 'yes':
 ```
 ✅ PREFLIGHT COMPLETE
 
-docs/PREFLIGHT.md uppdaterad med STATUS: READY FOR DEV
+docs/PREFLIGHT.md updated with STATUS: READY FOR DEV
 
-Nästa steg:
-  /ralph:plan    - Skapa specs
-  /ralph:deploy  - Starta bygget
+Next steps:
+  /ralph:plan    - Create specs
+  /ralph:deploy  - Start the build
 ```
 
-Om användaren svarar "nej":
+If the user answers 'no':
 ```
 ⚠️ PREFLIGHT INCOMPLETE
 
-Vänligen slutför följande innan du fortsätter:
-{lista saknade items}
+Please complete the following before continuing:
+{list missing items}
 
-Kör /ralph:preflight --check när du är klar.
+Run /ralph:preflight --check when you're done.
 ```
 
-**VIKTIGT:**
-- STOPPA INTE om preflight inte är klar
-- Användaren måste aktivt bekräfta
-- `/ralph:deploy` ska vägra köra om PREFLIGHT inte är READY
+**IMPORTANT:**
+- DO NOT STOP if preflight is not complete
+- User must actively confirm
+- `/ralph:deploy` should refuse to run if PREFLIGHT is not READY

@@ -1,177 +1,177 @@
 # /ralph:idea - Start Discovery Loop
 
-Autonom utforskning av en produktidé från alla vinklar med web research.
+Autonomous exploration of a product idea from all angles with web research.
 
 ## Usage
 ```
-/ralph:idea "Din produktidé här"
+/ralph:idea "Your product idea here"
 ```
 
 ## Instructions
 
-**DU SKA KÖRA EN AUTONOM DISCOVERY LOOP**
+**YOU SHOULD RUN AN AUTONOMOUS DISCOVERY LOOP**
 
-Utforska idén genom att växla mellan roller. Använd WebSearch aktivt för research.
-Iterera tills PRD är komplett och alla frågor besvarade.
+Explore the idea by switching between roles. Use WebSearch actively for research.
+Iterate until the PRD is complete and all questions answered.
 
 ---
 
-**FAS 1: INITIAL RESEARCH (Analyst)**
+**PHASE 1: INITIAL RESEARCH (Analyst)**
 
 ```
 🔍 ANALYST MODE
 ```
 
-1. WebSearch: Sök efter liknande produkter/tjänster
-2. WebSearch: Sök efter potentiella integrationer (API:er)
-3. Identifiera konkurrenter och deras styrkor/svagheter
-4. Dokumentera marknadsstorlek om möjligt
+1. WebSearch: Search for similar products/services
+2. WebSearch: Search for potential integrations (APIs)
+3. identify competitors and their strengths/weaknesses
+4. Document market size if possible
 
-Skriv ner findings i sektion: `## Market Research`
+Write down findings in section: `## Market Research`
 
 ---
 
-**FAS 2: ANVÄNDARE & FLÖDEN (UX)**
+**PHASE 2: USERS & FLOWS (UX)**
 
 ```
 👤 UX MODE
 ```
 
-1. Definiera 2-3 personas (vem är användarna?)
-2. Skissa huvudsakliga user flows
-3. Identifiera kritiska interaktionspunkter
-4. Tänk på onboarding-flödet
+1. define 2-3 personas (who are the users?)
+2. sketch main user flows
+3. identify critical interaction points
+4. think about the onboarding flow
 
-Skriv ner i sektioner: `## Target Users & Personas`, `## User Flows`
+Write down in sections: `## Target Users & Personas`, `## User Flows`
 
 ---
 
-**FAS 3: SCOPE & PRIORITERING (PM)**
+**PHASE 3: SCOPE & PRIORITIZATION (PM)**
 
 ```
 📋 PM MODE
 ```
 
-1. Lista alla potentiella features
-2. Prioritera: Vad är MVP? Vad kan vänta?
-3. Definiera "done" för MVP
-4. Identifiera risker och beroenden
+1. list all potential features
+2. prioritize: what is MVP? What can wait?
+3. define "done" for MVP
+4. Identify risks and dependencies
 
-Skriv ner i sektion: `## Core Features (MVP)`, `## Future Features`
+Write down in section: `## Core Features (MVP)`, `## Future Features`
 
 ---
 
-**FAS 4: TEKNISK DESIGN (Architect)**
+**PHASE 4: TECHNICAL DESIGN (Architect)
 
 ```
 🏗️ ARCHITECT MODE
 ```
 
-1. WebSearch: Sök efter relevanta API:er och dokumentation
-2. Välj tech stack baserat på requirements
-3. Lista alla externa integrationer
-4. Identifiera tekniska utmaningar
+1. WebSearch: Search for relevant APIs and documentation
+2. Select tech stack based on requirements
+3. list all external integrations
+4. Identify technical challenges
 
-Skriv ner i sektioner: `## Technical Requirements`, `## Integrations Required`
+Write down in sections: `## Technical Requirements`, `## Integrations Required`
 
 ---
 
-**FAS 5: AFFÄR & JURIDIK (Business)**
+**Phase 5: BUSINESS & LEGAL (Business)**
 
 ```
 💼 BUSINESS MODE
 ```
 
-1. Definiera affärsmodell (hur tjänar vi pengar?)
-2. WebSearch: Sök efter juridiska krav (GDPR, PCI-DSS etc)
-3. Identifiera compliance-krav
-4. Uppskatta kostnader (API:er, hosting)
+1. define business model (how do we make money?)
+2. WebSearch: Search for legal requirements (GDPR, PCI-DSS etc)
+3. identify compliance requirements
+4. Estimate costs (APIs, hosting)
 
-Skriv ner i sektioner: `## Business Model`, `## Legal/Compliance`
+Write down in sections: `## Business Model`, `## Legal/Compliance`
 
 ---
 
-**FAS 6: SYNTES & VALIDERING**
+**PHASE 6: SYNTHESIS & VALIDATION**
 
 ```
 ✅ VALIDATION MODE
 ```
 
-1. Läs igenom alla sektioner
-2. Finns det öppna frågor? → Lägg till i `## Open Questions`
-3. Finns det konflikter mellan sektioner? → Lös dem
-4. Är tech stack konsistent med requirements? → Verifiera
+1. read through all sections
+2. are there open questions? → Add to `## Open Questions`
+3. are there conflicts between sections? → Resolve them
+4. Is the tech stack consistent with requirements? → Verify
 
-**ITERERA** om Open Questions inte är tom:
-- Gå tillbaka till relevant roll
-- Gör mer research
-- Uppdatera sektioner
+**ITERATE** if Open Questions is not empty:
+- Go back to relevant role
+- Do more research
+- Update sections
 
 ---
 
 **EXIT CRITERIA**
 
-Loopen är klar när:
-- [ ] Alla sektioner har meningsfullt innehåll
-- [ ] `## Open Questions` är tom eller innehåller endast "nice-to-have"
-- [ ] Tech stack är beslutad och dokumenterad
-- [ ] Alla kritiska integrationer är identifierade
-- [ ] MVP scope är tydligt definierat
+The loop is complete when
+- [ ] All sections have meaningful content
+- [ ] `## Open Questions` is empty or contains only "nice-to-have"
+- [ ] Tech stack is decided and documented
+- [ ] All critical integrations are identified
+- [ ] MVP scope is clearly defined
 
 ---
 
 **OUTPUT**
 
-Skapa `docs/PRD.md` med följande struktur:
+Create `docs/PRD.md` with the following structure
 
 ```markdown
-# [Produktnamn] - PRD
+# [Product Name] - PRD
 
 ## Vision & Problem
-{Vad löser vi? Varför behövs detta?}
+{What are we solving? Why is this needed?}
 
 ## Market Research
-{Konkurrenter, marknad, möjligheter}
+{Competitors, market, opportunities}
 
 ## Target Users & Personas
-{Vem är användarna? 2-3 personas}
+{Who are the users? 2-3 personas}
 
 ## User Flows
-{Huvudsakliga flöden, steg för steg}
+{Main flows, step by step}
 
 ## Core Features (MVP)
-{Prioriterad lista, vad måste finnas}
+{Prioritized list, what must exist}
 
 ## Future Features
-{Vad kan vänta till v2?}
+{What can wait for v2?}
 
 ## Technical Requirements
-{Stack, arkitektur, constraints}
+{Stack, architecture, constraints}
 
 ## Integrations Required
-{Externa API:er och tjänster}
+{External APIs and services}
 
 ## Business Model
-{Hur tjänar vi pengar?}
+{How do we make money?}
 
 ## Legal/Compliance
-{GDPR, PCI-DSS, andra krav}
+{GDPR, PCI-DSS, other requirements}
 
 ## Open Questions
-{MÅSTE VARA TOM för att vara klar}
+{MUST BE EMPTY to be complete}
 ```
 
 ---
 
-**NÄR KLAR**
+**WHEN READY**
 
-Skriv:
+Type:
 ```
 DISCOVERY_COMPLETE
 
-PRD sparad till: docs/PRD.md
+PRD saved to: docs/PRD.md
 
-Nästa steg:
-1. Kör /ralph:preflight för att verifiera requirements
-2. Kör /ralph:plan för att skapa implementation plan
+Next steps:
+1. Run /ralph:preflight to verify requirements
+2. Run /ralph:plan to create implementation plan
 ```

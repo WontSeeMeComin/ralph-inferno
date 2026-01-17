@@ -1,7 +1,7 @@
 #!/bin/bash
-# post-merge.sh - Körs efter parallell worktree merge
+# post-merge.sh - Run after parallel worktree merge
 #
-# Säkerställer att alla komponenter är korrekt integrerade
+# Ensures that all components are properly integrated
 
 set -e
 
@@ -13,32 +13,32 @@ echo ""
 
 ISSUES=0
 
-# 1. Hitta alla komponenter som saknar export
-echo "Kollar exports..."
+# 1. Find all components missing exports
+echo "Checking exports..."
 for dir in src/components/*/; do
     if [ -d "$dir" ]; then
         index_file="${dir}index.ts"
 
-        # Skapa index.ts om den saknas
+        # Create index.ts if it is missing
         if [ ! -f "$index_file" ]; then
             touch "$index_file"
-            echo "   Skapade $index_file"
+            echo " Created $index_file"
         fi
 
-        # Kolla varje komponent
+        # Check each component
         for component in "$dir"*.tsx; do
             if [ -f "$component" ]; then
                 name=$(basename "$component" .tsx)
 
-                # Skippa index
+                # Skip index
                 if [ "$name" = "index" ]; then
                     continue
                 fi
 
-                # Lägg till export om saknas
+                # Add export if missing
                 if ! grep -q "export.*$name" "$index_file" 2>/dev/null; then
                     echo "export { $name } from './$name'" >> "$index_file"
-                    echo "   ✅ La till export för $name"
+                    echo " ✅ Add export for $name"
                     ISSUES=$((ISSUES + 1))
                 fi
             fi
@@ -46,7 +46,7 @@ for dir in src/components/*/; do
     fi
 done
 
-# 2. Samma för hooks
+# 2. Same for hooks
 if [ -d "src/hooks" ]; then
     index_file="src/hooks/index.ts"
     if [ ! -f "$index_file" ]; then
@@ -62,14 +62,14 @@ if [ -d "src/hooks" ]; then
 
             if ! grep -q "$name" "$index_file" 2>/dev/null; then
                 echo "export * from './$name'" >> "$index_file"
-                echo "   ✅ La till export för $name hook"
+                echo " ✅ Add export for $name hook"
                 ISSUES=$((ISSUES + 1))
             fi
         fi
     done
 fi
 
-# 3. Samma för contexts
+# 3. Same for contexts
 if [ -d "src/contexts" ]; then
     index_file="src/contexts/index.ts"
     if [ ! -f "$index_file" ]; then
@@ -85,7 +85,7 @@ if [ -d "src/contexts" ]; then
 
             if ! grep -q "$name" "$index_file" 2>/dev/null; then
                 echo "export * from './$name'" >> "$index_file"
-                echo "   ✅ La till export för $name context"
+                echo " ✅ Add export for $name context"
                 ISSUES=$((ISSUES + 1))
             fi
         fi
@@ -94,17 +94,17 @@ fi
 
 echo ""
 if [ $ISSUES -gt 0 ]; then
-    echo "🔧 Fixade $ISSUES saknade exports"
+    echo "🔧 Fixed $ISSUES missing exports"
 
-    # Kör build för att verifiera
+    # Run build to verify
     echo ""
-    echo "Verifierar build..."
+    echo "Verifying build..."
     if npm run build > /dev/null 2>&1; then
-        echo "✅ Build OK efter fixes"
+        echo "✅ Build OK after fixes"
     else
-        echo "❌ Build FAILED - manuell fix behövs"
+        echo "❌ Build FAILED - manual fix needed"
         exit 1
     fi
 else
-    echo "✅ Alla exports OK"
+    echo "✅ All exports OK"
 fi
