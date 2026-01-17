@@ -1,55 +1,70 @@
 {
-  "description": "Model capabilities registry. Maps model name patterns to their optimal tool calling format.",
+  "description": "Model capabilities registry. Maps model name patterns to their optimal tool calling format. All models use normalized [THOUGHT]...[/THOUGHT] blocks for reasoning.",
   "models": {
     "ministral": {
       "toolFormat": "native",
-      "thinkingTags": ["[THINK]", "[/THINK]"],
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
       "notes": "Mistral reasoning models use native OpenAI-style tool calling"
     },
     "devstral": {
       "toolFormat": "native",
-      "thinkingTags": null,
-      "notes": "Mistral coding model, native tools, no explicit reasoning tags"
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+      "notes": "Mistral coding model, native tools"
     },
     "qwen": {
-      "toolFormat": "json_text",
-      "thinkingTags": ["<think>", "</think>"],
-      "notes": "Qwen models work better with JSON-in-text prompting"
+      "toolFormat": "block_text",
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+      "notes": "Qwen models work better with block-text format to avoid JSON escaping issues"
     },
     "gpt-4": {
       "toolFormat": "native",
-      "thinkingTags": null,
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
       "notes": "OpenAI models use native tool calling"
     },
     "gpt-3.5": {
       "toolFormat": "native",
-      "thinkingTags": null,
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
       "notes": "OpenAI models use native tool calling"
     },
     "claude": {
       "toolFormat": "native",
-      "thinkingTags": null,
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
       "notes": "Anthropic models use native tool calling"
     },
     "llama": {
-      "toolFormat": "json_text",
-      "thinkingTags": null,
-      "notes": "Llama models generally work better with JSON-in-text"
+      "toolFormat": "block_text",
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+      "notes": "Llama models work better with block-text format"
     },
     "codellama": {
-      "toolFormat": "json_text",
-      "thinkingTags": null,
-      "notes": "Code Llama works better with JSON-in-text"
+      "toolFormat": "block_text",
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+      "notes": "Code Llama works better with block-text format"
     },
     "deepseek": {
-      "toolFormat": "json_text",
-      "thinkingTags": ["<think>", "</think>"],
-      "notes": "DeepSeek models use thinking tags, JSON-in-text for tools"
+      "toolFormat": "block_text",
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+      "notes": "DeepSeek models use block-text format for tools"
+    },
+    "nemotron": {
+      "toolFormat": "block_text",
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+      "notes": "NVIDIA Nemotron models use block-text format"
+    },
+    "gemma": {
+      "toolFormat": "block_text",
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+      "notes": "Google Gemma models use block-text format"
+    },
+    "mistral": {
+      "toolFormat": "native",
+      "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+      "notes": "Generic Mistral models use native tool calling"
     }
   },
   "default": {
-    "toolFormat": "json_text",
-    "thinkingTags": null,
-    "notes": "Conservative default - JSON-in-text works with most models"
+    "toolFormat": "block_text",
+    "thinkingTags": ["[THOUGHT]", "[/THOUGHT]"],
+    "notes": "Conservative default - block_text works with most OSS models without JSON escaping issues"
   }
 }

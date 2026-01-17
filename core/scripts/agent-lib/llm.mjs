@@ -22,7 +22,7 @@ export async function llmChat({ provider, config, messages, timeoutSeconds, useC
 
 async function _llmChatImpl({ provider, config, messages, timeoutSeconds, useCase, toolFormat, tools }) {
   if (provider === 'ollama') {
-    // Ollama doesn't support native tool calling well, always use json_text
+    // Ollama doesn't support native tool calling well, always use block_text format
     const host = envOr(config, 'RALPH_OLLAMA_HOST', (c) => c.llm?.ollama?.host, 'http://localhost:11434')
     const model = modelFor({ provider, config, useCase })
     const resp = await fetch(`${host.replace(/\/$/, '')}/api/chat`, {

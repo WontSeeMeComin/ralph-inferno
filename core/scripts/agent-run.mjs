@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // agent-run.mjs - Lightweight local/OpenRouter coding agent for running a Ralph spec
-// Supports both native OpenAI tool calling and JSON-in-text formats.
+// Supports both native OpenAI tool calling and block_text formats.
 // No external deps (Node 18+).
 
 import fs from 'node:fs/promises'
@@ -12,8 +12,8 @@ import { log, die, run, envOr, COMPLETION_MARKER } from './agent-lib/utils.mjs'
 import { readConfig, modelFor, selectProvider } from './agent-lib/config.mjs'
 import { loadToolSchema, loadModelCapabilities, getModelCapabilities } from './agent-lib/schemas.mjs'
 import { llmChat } from './agent-lib/llm.mjs'
-import { parseNativeToolCall, parseJsonTextResponse } from './agent-lib/parsers.mjs'
-import { buildSystemPromptNative, buildSystemPromptJsonText } from './agent-lib/prompts.mjs'
+import { parseNativeToolCall, parseTextResponse, extractThoughtBlock } from './agent-lib/parsers.mjs'
+import { buildSystemPromptNative, buildSystemPromptBlockText } from './agent-lib/prompts.mjs'
 
 // ============================================================================
 // Tool Execution
@@ -167,11 +167,14 @@ async function main() {
   // Load model capabilities and determine tool format
   const model = modelFor({ provider, config, useCase })
   const capabilities = await loadModelCapabilities()
-  const { toolFormat, thinkingTags } = getModelCapabilities(model, config, provider, capabilities)
+  const { toolFormat: rawToolFormat, thinkingTags } = getModelCapabilities(model, config, provider, capabilities)
+
+  // Normalize json_text -> block_text (backwards compatibility)
+  const toolFormat = rawToolFormat === 'json_text' ? 'block_text' : rawToolFormat
 
   // Load appropriate tool schema
   const nativeTools = toolFormat === 'native' ? await loadToolSchema('native') : null
-  const jsonTextSchema = toolFormat === 'json_text' ? await loadToolSchema('json_text') : null
+  const blockTextSchema = toolFormat === 'block_text' ? await loadToolSchema('block_text') : null
 
   const timeoutSeconds = Number(envOr(config, 'RALPH_LLM_TIMEOUT_SECONDS', (c) => c.llm?.timeout_seconds, '120'))
 
@@ -179,7 +182,7 @@ async function main() {
   log(`=== AGENT START ===`)
   log(`spec: ${specPath}`)
   log(`provider: ${provider} | model: ${model}`)
-  log(`toolFormat: ${toolFormat} | thinkingTags: ${thinkingTags ? thinkingTags.join('...') : 'none'}`)
+  log(`toolFormat: ${toolFormat} | thinkingTags: [THOUGHT]...[/THOUGHT]`)
   log(`timeout: ${timeoutSeconds}s | steps: unlimited (bash timeout governs)`)
   log(`CLAUDE.md: ${claudeMd ? `loaded (${claudeMd.length} chars)` : 'not found'}`)
   log(`git context: ${gitLog ? 'loaded' : 'none'}`)
@@ -187,7 +190,7 @@ async function main() {
   // Build system prompt based on tool format
   const system = toolFormat === 'native'
     ? buildSystemPromptNative()
-    : buildSystemPromptJsonText(jsonTextSchema)
+    : buildSystemPromptBlockText(blockTextSchema)
 
   // Build initial user message with all context
   let userContent = ''
@@ -204,8 +207,8 @@ async function main() {
   if (process.env.RALPH_AGENT_EXTRA_CONTEXT) {
     userContent += `---\nADDITIONAL CONTEXT (from previous failures):\n${process.env.RALPH_AGENT_EXTRA_CONTEXT}\n\n`
   }
-  if (toolFormat === 'json_text') {
-    userContent += `Remember: reply with a single JSON tool action.`
+  if (toolFormat === 'block_text') {
+    userContent += `Remember: First output your [THOUGHT], then use a tool with [tool_name]...[/tool_name] format.`
   }
 
   const messages = [
@@ -236,21 +239,48 @@ async function main() {
     if (toolFormat === 'native' && response.toolCall) {
       // Native tool calling - parse from structured response
       action = parseNativeToolCall(response.toolCall)
+
+      // Extract thought from content if present (native format may still include thoughts)
+      if (response.content) {
+        const { thought } = extractThoughtBlock(response.content)
+        if (thought && action) {
+          action._thought = thought
+          log(`[THOUGHT] ${thought.slice(0, 100)}${thought.length > 100 ? '...' : ''}`)
+        }
+      }
+
       if (!action) {
         messages.push({ role: 'assistant', content: response.content || '' })
-        messages.push({ role: 'user', content: 'Tool call parsing failed. Please try again.' })
+        messages.push({ role: 'user', content: 'Tool call parsing failed. Please try again with a valid tool call.' })
         continue
       }
     } else {
-      // JSON-in-text format - parse from content
+      // Block-text format - parse from content
       const modelText = response.content || ''
       try {
-        action = parseJsonTextResponse(modelText)
+        action = parseTextResponse(modelText, true) // preferBlockText=true
+
+        // Log thought if present
+        if (action._thought) {
+          log(`[THOUGHT] ${action._thought.slice(0, 100)}${action._thought.length > 100 ? '...' : ''}`)
+        }
       } catch (e) {
         messages.push({ role: 'assistant', content: modelText })
         messages.push({
           role: 'user',
-          content: `Your response was not valid JSON. Reply again with EXACTLY ONE JSON object tool action. Error: ${String(e).slice(0, 200)}`,
+          content: `Your response was not in the expected format. Please use:
+
+[THOUGHT]
+Your reasoning here
+[/THOUGHT]
+
+<tool_code>
+[tool_name]
+param: value
+[/tool_name]
+</tool_code>
+
+Error: ${String(e).slice(0, 200)}`,
         })
         continue
       }
@@ -264,7 +294,7 @@ async function main() {
       messages.push({ role: 'assistant', content: response.content || '' })
       messages.push({
         role: 'user',
-        content: 'INVALID RESPONSE: missing required key "action". Please call one of the available tools.',
+        content: 'INVALID RESPONSE: missing required action. Please call one of the available tools using the correct format.',
       })
       continue
     }
@@ -275,15 +305,17 @@ async function main() {
 
       if (toolFormat === 'native' && action._toolCallId) {
         // Native format: use tool message type
+        // Include thought in assistant content if present
+        const assistantContent = action._thought ? `[THOUGHT]\n${action._thought}\n[/THOUGHT]` : null
         messages.push({
           role: 'assistant',
-          content: null,
+          content: assistantContent,
           tool_calls: [{
             id: action._toolCallId,
             type: 'function',
             function: {
               name: action.action,
-              arguments: JSON.stringify({ ...action, _toolCallId: undefined, action: undefined })
+              arguments: JSON.stringify({ ...action, _toolCallId: undefined, action: undefined, _thought: undefined })
             }
           }]
         })
@@ -293,8 +325,24 @@ async function main() {
           content: resultStr
         })
       } else {
-        // JSON-text format: use user message
-        messages.push({ role: 'assistant', content: JSON.stringify(action) })
+        // Block-text format: preserve thought in assistant message
+        let assistantContent = ''
+        if (action._thought) {
+          assistantContent += `[THOUGHT]\n${action._thought}\n[/THOUGHT]\n\n`
+        }
+        // Reconstruct the tool call in block format for history
+        assistantContent += `<tool_code>\n[${action.action}]\n`
+        for (const [k, v] of Object.entries(action)) {
+          if (k === 'action' || k === '_thought') continue
+          if (typeof v === 'string' && v.includes('\n')) {
+            assistantContent += `${k}:\n${v}\n`
+          } else {
+            assistantContent += `${k}: ${v}\n`
+          }
+        }
+        assistantContent += `[/${action.action}]\n</tool_code>`
+
+        messages.push({ role: 'assistant', content: assistantContent })
         messages.push({ role: 'user', content: resultStr })
       }
     }

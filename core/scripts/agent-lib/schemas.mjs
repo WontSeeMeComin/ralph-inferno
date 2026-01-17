@@ -8,7 +8,16 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const SCHEMAS_DIR = path.join(__dirname, '..', 'tool-schemas')
 
 export async function loadToolSchema(format) {
-  const filename = format === 'native' ? 'openai-native.json' : 'json-text-schema.json'
+  let filename
+  if (format === 'native') {
+    filename = 'openai-native.json'
+  } else if (format === 'block_text') {
+    filename = 'block-text-schema.json'
+  } else {
+    // Legacy json_text fallback
+    filename = 'json-text-schema.json'
+  }
+
   const schemaPath = path.join(SCHEMAS_DIR, filename)
   try {
     const raw = await fs.readFile(schemaPath, 'utf8')
@@ -26,7 +35,7 @@ export async function loadModelCapabilities() {
     return JSON.parse(raw)
   } catch (e) {
     log(`Warning: Could not load model-capabilities.json: ${e.message}`)
-    return { models: {}, default: { toolFormat: 'json_text', thinkingTags: null } }
+    return { models: {}, default: { toolFormat: 'block_text', thinkingTags: ['[THOUGHT]', '[/THOUGHT]'] } }
   }
 }
 
@@ -44,5 +53,5 @@ export function getModelCapabilities(model, config, provider, capabilities) {
       return { toolFormat: caps.toolFormat, thinkingTags: caps.thinkingTags }
     }
   }
-  return capabilities.default || { toolFormat: 'json_text', thinkingTags: null }
+  return capabilities.default || { toolFormat: 'block_text', thinkingTags: ['[THOUGHT]', '[/THOUGHT]'] }
 }
