@@ -1,0 +1,104 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "read_file",
+      "description": "Read a file from disk. Returns file content with line numbers.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "File path to read" },
+          "start_line": { "type": "integer", "description": "Start line (1-indexed, default: 1)" },
+          "end_line": { "type": "integer", "description": "End line (1-indexed, default: start_line + 200)" }
+        },
+        "required": ["path"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "list_dir",
+      "description": "List directory contents. Returns array of {name, type} entries.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "Directory path to list" }
+        },
+        "required": ["path"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "search",
+      "description": "Search for a pattern in files using grep. Returns matching lines.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "string", "description": "Search pattern (regex)" },
+          "path": { "type": "string", "description": "Directory or file to search in (default: current dir)" }
+        },
+        "required": ["pattern"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "write_file",
+      "description": "Write content to a file. Creates parent directories if needed.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "path": { "type": "string", "description": "File path to write" },
+          "content": { "type": "string", "description": "Content to write to the file" }
+        },
+        "required": ["path", "content"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "apply_patch",
+      "description": "Apply a git-format patch to modify files. Prefer this over rewriting entire files.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "patch": { "type": "string", "description": "Patch content in git diff format" }
+        },
+        "required": ["patch"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "run",
+      "description": "Run a shell command. Use for npm, git, and other CLI tools.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "cmd": { "type": "string", "description": "Shell command to execute" }
+        },
+        "required": ["cmd"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "done",
+      "description": "Signal that the spec is complete. Call this when all requirements are met.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "summary": { "type": "string", "description": "Brief summary of what was accomplished" }
+        },
+        "required": ["summary"]
+      }
+    }
+  }
+]

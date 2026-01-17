@@ -1,228 +1,111 @@
 #!/usr/bin/env node
 // agent-run.mjs - Lightweight local/OpenRouter coding agent for running a Ralph spec
+// Supports both native OpenAI tool calling and JSON-in-text formats.
 // No external deps (Node 18+).
 
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
-import { spawnSync } from 'node:child_process'
 
-const COMPLETION_MARKER = '<promise>DONE</promise>'
+import { log, die, run, envOr, COMPLETION_MARKER } from './agent-lib/utils.mjs'
+import { readConfig, modelFor, selectProvider } from './agent-lib/config.mjs'
+import { loadToolSchema, loadModelCapabilities, getModelCapabilities } from './agent-lib/schemas.mjs'
+import { llmChat } from './agent-lib/llm.mjs'
+import { parseNativeToolCall, parseJsonTextResponse } from './agent-lib/parsers.mjs'
+import { buildSystemPromptNative, buildSystemPromptJsonText } from './agent-lib/prompts.mjs'
 
-// Timestamped logging
-function log(msg) {
-  const ts = new Date().toISOString().slice(11, 19)
-  console.log(`[${ts}] ${msg}`)
-}
+// ============================================================================
+// Tool Execution
+// ============================================================================
 
-function die(msg, code = 1) {
-  const ts = new Date().toISOString().slice(11, 19)
-  console.error(`[${ts}] ERROR: ${msg}`)
-  process.exit(code)
-}
+async function executeToolAction(action, sessionId, respond) {
+  const act = action.action
 
-function run(cmd, { cwd = process.cwd(), timeoutMs = 0 } = {}) {
-  const res = spawnSync('bash', ['-lc', cmd], {
-    cwd,
-    encoding: 'utf8',
-    maxBuffer: 50 * 1024 * 1024,
-    timeout: timeoutMs > 0 ? timeoutMs : undefined,
-  })
-  return {
-    exitCode: res.status ?? 0,
-    stdout: res.stdout ?? '',
-    stderr: res.stderr ?? '',
-    signal: res.signal ?? null,
-  }
-}
-
-async function readConfig() {
-  const configPath = process.env.RALPH_CONFIG || path.join('.ralph', 'config.json')
-  try {
-    const raw = await fs.readFile(configPath, 'utf8')
-    return { path: configPath, json: JSON.parse(raw) }
-  } catch {
-    return { path: configPath, json: {} }
-  }
-}
-
-function envOr(obj, envName, getter, fallback) {
-  const v = process.env[envName]
-  if (v !== undefined && v !== '') return v
-  const jv = getter(obj)
-  if (jv !== undefined && jv !== null && String(jv) !== '') return String(jv)
-  return fallback
-}
-
-function normalizeOpenAIBaseUrl(base) {
-  const b = String(base || '').replace(/\/$/, '')
-  return b.endsWith('/v1') ? b : `${b}/v1`
-}
-
-function useCaseSuffix(useCase) {
-  return String(useCase || '')
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, '_')
-}
-
-function useCaseEnv(baseKey, useCase) {
-  const s = useCaseSuffix(useCase)
-  return s ? `${baseKey}_${s}` : baseKey
-}
-
-function modelFor({ provider, config, useCase }) {
-  if (provider === 'ollama') {
-    return (
-      process.env[useCaseEnv('RALPH_OLLAMA_MODEL', useCase)] ||
-      config.llm?.ollama?.use_case_models?.[useCase] ||
-      process.env.RALPH_OLLAMA_MODEL ||
-      config.llm?.ollama?.model ||
-      'qwen3'
-    )
-  }
-
-  if (provider === 'lmstudio') {
-    return (
-      process.env[useCaseEnv('RALPH_LMSTUDIO_MODEL', useCase)] ||
-      config.llm?.lmstudio?.use_case_models?.[useCase] ||
-      process.env.RALPH_LMSTUDIO_MODEL ||
-      config.llm?.lmstudio?.model ||
-      'qwen/qwen3-next-80b'
-    )
-  }
-
-  if (provider === 'openrouter') {
-    return (
-      process.env[useCaseEnv('RALPH_OPENROUTER_MODEL', useCase)] ||
-      config.llm?.openrouter?.use_case_models?.[useCase] ||
-      process.env.RALPH_OPENROUTER_MODEL ||
-      config.llm?.openrouter?.model ||
-      'openai/gpt-4o-mini'
-    )
-  }
-
-  return null
-}
-
-async function llmChat({ provider, config, messages, timeoutSeconds, useCase }) {
-  const model = modelFor({ provider, config, useCase })
-  log(`llm: provider=${provider} model=${model} msgs=${messages.length} timeout=${timeoutSeconds}s`)
-  const startTime = Date.now()
-
-  try {
-    const result = await _llmChatImpl({ provider, config, messages, timeoutSeconds, useCase })
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-    log(`llm: response in ${elapsed}s (${result.length} chars)`)
-    return result
-  } catch (e) {
-    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-    log(`llm: FAILED after ${elapsed}s - ${e.message}`)
-    throw e
-  }
-}
-
-async function _llmChatImpl({ provider, config, messages, timeoutSeconds, useCase }) {
-  if (provider === 'ollama') {
-    const host = envOr(config, 'RALPH_OLLAMA_HOST', (c) => c.llm?.ollama?.host, 'http://localhost:11434')
-    const model = modelFor({ provider, config, useCase })
-    const resp = await fetch(`${host.replace(/\/$/, '')}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, stream: false, messages }),
-      signal: AbortSignal.timeout(timeoutSeconds * 1000),
-    })
-    const text = await resp.text()
-    if (!resp.ok) throw new Error(`Ollama error ${resp.status}: ${text.slice(0, 500)}`)
-    const json = JSON.parse(text)
-    return json?.message?.content ?? ''
-  }
-
-  if (provider === 'lmstudio' || provider === 'openrouter') {
-    const base = provider === 'lmstudio'
-      ? envOr(config, 'RALPH_LMSTUDIO_BASE_URL', (c) => c.llm?.lmstudio?.base_url, 'http://localhost:1234')
-      : envOr(config, 'RALPH_OPENROUTER_BASE_URL', (c) => c.llm?.openrouter?.base_url, 'https://openrouter.ai/api/v1')
-
-    const model = modelFor({ provider, config, useCase })
-
-    const url = `${normalizeOpenAIBaseUrl(base)}/chat/completions`
-
-    const headers = { 'Content-Type': 'application/json' }
-    if (provider === 'openrouter') {
-      const key = process.env.RALPH_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || config.llm?.openrouter?.api_key
-      if (!key) throw new Error('OpenRouter requires OPENROUTER_API_KEY (or RALPH_OPENROUTER_API_KEY)')
-      headers.Authorization = `Bearer ${key}`
-      // Optional analytics headers
-      if (process.env.OPENROUTER_HTTP_REFERER) headers['HTTP-Referer'] = process.env.OPENROUTER_HTTP_REFERER
-      if (process.env.OPENROUTER_X_TITLE) headers['X-Title'] = process.env.OPENROUTER_X_TITLE
-    }
-
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ model, messages, temperature: 0.2 }),
-      signal: AbortSignal.timeout(timeoutSeconds * 1000),
-    })
-    const text = await resp.text()
-    if (!resp.ok) throw new Error(`OpenAI-compatible error ${resp.status}: ${text.slice(0, 500)}`)
-    const json = JSON.parse(text)
-    return json?.choices?.[0]?.message?.content ?? ''
-  }
-
-  throw new Error(`Unsupported provider: ${provider}`)
-}
-
-async function selectProvider(config) {
-  const requested = (process.env.RALPH_LLM_PROVIDER || config.llm?.provider || 'claude').toLowerCase()
-
-  async function healthOpenAI(base, headers = {}) {
+  if (act === 'read_file') {
+    const p = action.path
+    const start = Number(action.start_line || 1)
+    const end = Number(action.end_line || start + 200)
     try {
-      const url = `${normalizeOpenAIBaseUrl(base)}/models`
-      const r = await fetch(url, { headers, signal: AbortSignal.timeout(3000) })
-      return r.ok
-    } catch {
-      return false
+      const raw = await fs.readFile(p, 'utf8')
+      const lines = raw.split('\n')
+      const slice = lines.slice(start - 1, end).map((l, i) => `${start + i}: ${l}`)
+      respond({ ok: true, action: 'read_file', path: p, start_line: start, end_line: end, content: slice.join('\n') })
+    } catch (e) {
+      respond({ ok: false, action: 'read_file', error: String(e) })
     }
+    return true
   }
 
-  async function healthOllama(host) {
+  if (act === 'list_dir') {
+    const p = action.path
     try {
-      const r = await fetch(`${host.replace(/\/$/, '')}/api/tags`, { signal: AbortSignal.timeout(3000) })
-      return r.ok
-    } catch {
-      return false
+      const entries = await fs.readdir(p, { withFileTypes: true })
+      respond({
+        ok: true,
+        action: 'list_dir',
+        path: p,
+        entries: entries
+          .slice(0, 200)
+          .map((e) => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' })),
+      })
+    } catch (e) {
+      respond({ ok: false, action: 'list_dir', error: String(e) })
     }
+    return true
   }
 
-  const auto = async () => {
-    const lmBase = envOr(config, 'RALPH_LMSTUDIO_BASE_URL', (c) => c.llm?.lmstudio?.base_url, 'http://localhost:1234')
-    if (await healthOpenAI(lmBase)) return 'lmstudio'
-
-    const ollamaHost = envOr(config, 'RALPH_OLLAMA_HOST', (c) => c.llm?.ollama?.host, 'http://localhost:11434')
-    if (await healthOllama(ollamaHost)) return 'ollama'
-
-    const orBase = envOr(config, 'RALPH_OPENROUTER_BASE_URL', (c) => c.llm?.openrouter?.base_url, 'https://openrouter.ai/api/v1')
-    const key = process.env.RALPH_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || config.llm?.openrouter?.api_key
-    if (key) {
-      if (await healthOpenAI(orBase, { Authorization: `Bearer ${key}` })) return 'openrouter'
-    }
-
-    return null
+  if (act === 'search') {
+    const pattern = action.pattern
+    const p = action.path || '.'
+    const res = run(`grep -R -n -- "${pattern.replaceAll('"', '\\"')}" "${p.replaceAll('"', '\\"')}" | head -50 || true`)
+    respond({ ok: true, action: 'search', path: p, pattern, stdout: res.stdout, stderr: res.stderr })
+    return true
   }
 
-  if (requested === 'auto') return (await auto())
-  if (['lmstudio', 'ollama', 'openrouter'].includes(requested)) return requested
-  return null
+  if (act === 'run') {
+    const cmd = action.cmd
+    log(`run: ${cmd.slice(0, 80)}${cmd.length > 80 ? '...' : ''}`)
+    const res = run(cmd)
+    log(`  -> exit=${res.exitCode}`)
+    respond({ ok: res.exitCode === 0, action: 'run', cmd, exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr })
+    return true
+  }
+
+  if (act === 'write_file') {
+    const p = action.path
+    const content = String(action.content ?? '')
+    log(`write: ${p} (${Buffer.byteLength(content)} bytes)`)
+    await fs.mkdir(path.dirname(p), { recursive: true }).catch(() => {})
+    await fs.writeFile(p, content, 'utf8')
+    respond({ ok: true, action: 'write_file', path: p, bytes: Buffer.byteLength(content) })
+    return true
+  }
+
+  if (act === 'apply_patch') {
+    const patchText = String(action.patch ?? '')
+    const tmp = path.join(os.tmpdir(), `ralph-patch-${sessionId}.patch`)
+    await fs.writeFile(tmp, patchText, 'utf8')
+    const res = run(`git apply --whitespace=nowarn "${tmp}"`, { timeoutMs: 60_000 })
+    respond({ ok: res.exitCode === 0, action: 'apply_patch', exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr })
+    return true
+  }
+
+  if (act === 'done') {
+    log(`=== DONE: ${action.summary || '(no summary)'} ===`)
+    console.log(COMPLETION_MARKER)
+    process.exit(0)
+  }
+
+  // Unknown action
+  log(`unknown action: ${act}`)
+  respond({ ok: false, error: `Unknown action: ${act}` })
+  return true
 }
 
-function stripToJsonObject(text) {
-  // Remove common code fences and grab the first {...} block.
-  const t = String(text || '').replace(/```[a-zA-Z]*\n?/g, '').replace(/```/g, '').trim()
-  const start = t.indexOf('{')
-  const end = t.lastIndexOf('}')
-  if (start === -1 || end === -1 || end <= start) throw new Error('No JSON object found')
-  return t.slice(start, end + 1)
-}
+// ============================================================================
+// Main Agent Loop
+// ============================================================================
 
 async function main() {
   const argv = process.argv.slice(2)
@@ -248,6 +131,10 @@ async function main() {
 
   // Load CLAUDE.md for project context (critical for non-Claude agents)
   const claudeMd = await fs.readFile('CLAUDE.md', 'utf8').catch(() => null)
+
+  // Load git context
+  const gitLog = run('git log --oneline -20 2>/dev/null || true').stdout.trim()
+  const gitDiff = run('git diff HEAD~5 --stat 2>/dev/null || true').stdout.trim()
 
   const { json: config, path: cfgPath } = await readConfig()
 
@@ -277,199 +164,143 @@ async function main() {
     )
   }
 
+  // Load model capabilities and determine tool format
+  const model = modelFor({ provider, config, useCase })
+  const capabilities = await loadModelCapabilities()
+  const { toolFormat, thinkingTags } = getModelCapabilities(model, config, provider, capabilities)
+
+  // Load appropriate tool schema
+  const nativeTools = toolFormat === 'native' ? await loadToolSchema('native') : null
+  const jsonTextSchema = toolFormat === 'json_text' ? await loadToolSchema('json_text') : null
+
   const timeoutSeconds = Number(envOr(config, 'RALPH_LLM_TIMEOUT_SECONDS', (c) => c.llm?.timeout_seconds, '120'))
 
   const sessionId = crypto.randomUUID?.() ?? crypto.randomBytes(16).toString('hex')
   log(`=== AGENT START ===`)
   log(`spec: ${specPath}`)
-  log(`provider: ${provider} | model: ${modelFor({ provider, config, useCase })}`)
+  log(`provider: ${provider} | model: ${model}`)
+  log(`toolFormat: ${toolFormat} | thinkingTags: ${thinkingTags ? thinkingTags.join('...') : 'none'}`)
   log(`timeout: ${timeoutSeconds}s | steps: unlimited (bash timeout governs)`)
   log(`CLAUDE.md: ${claudeMd ? `loaded (${claudeMd.length} chars)` : 'not found'}`)
+  log(`git context: ${gitLog ? 'loaded' : 'none'}`)
 
-  const toolSpec = {
-    read_file: { path: 'string', start_line: 'number?', end_line: 'number?' },
-    list_dir: { path: 'string' },
-    search: { pattern: 'string', path: 'string?' },
-    write_file: { path: 'string', content: 'string' },
-    apply_patch: { patch: 'string (git apply format)' },
-    run: { cmd: 'string' },
-    done: { summary: 'string' },
+  // Build system prompt based on tool format
+  const system = toolFormat === 'native'
+    ? buildSystemPromptNative()
+    : buildSystemPromptJsonText(jsonTextSchema)
+
+  // Build initial user message with all context
+  let userContent = ''
+  if (claudeMd) {
+    userContent += `PROJECT CONTEXT (CLAUDE.md):\n${claudeMd}\n\n---\n\n`
   }
-
-  const system = `You are Ralph, an autonomous coding agent running in a disposable sandbox repo.
-
-You MUST complete the provided spec.
-
-You can only communicate by returning EXACTLY ONE JSON object per turn.
-
-CRITICAL FIRST STEP:
-- Your FIRST action MUST be: {"action":"run","cmd":"pwd"}
-- This shows your working directory. You are ALREADY in the project folder.
-- NEVER create subdirectories for the project. Work in current directory (.).
-- Example: "npm create vite@latest . --template react-ts" uses "." for current dir.
-
-CRITICAL:
-- Your JSON MUST include an "action" key.
-- The action MUST be one of: ${Object.keys(toolSpec).join(', ')}
-
-Allowed actions and schemas:
-${JSON.stringify(toolSpec, null, 2)}
-
-Example valid response:
-{"action":"run","cmd":"pwd"}
-
-Rules:
-- Always respond with a single JSON object (no markdown, no commentary).
-- FIRST: Run pwd to confirm your working directory.
-- NEVER create a new folder for the project - you're already in it.
-- Prefer apply_patch over rewriting whole files.
-- After changes, run 'npm run build'. For apps with Playwright config, run 'npx playwright test'.
-- When fully complete, respond with {"action":"done","summary":"..."}.
-`
+  if (gitLog) {
+    userContent += `RECENT COMMITS:\n${gitLog}\n\n`
+  }
+  if (gitDiff) {
+    userContent += `RECENT CHANGES:\n${gitDiff}\n\n---\n\n`
+  }
+  userContent += `SPEC FILE: ${specPath}\n\n${spec}\n\n`
+  if (process.env.RALPH_AGENT_EXTRA_CONTEXT) {
+    userContent += `---\nADDITIONAL CONTEXT (from previous failures):\n${process.env.RALPH_AGENT_EXTRA_CONTEXT}\n\n`
+  }
+  if (toolFormat === 'json_text') {
+    userContent += `Remember: reply with a single JSON tool action.`
+  }
 
   const messages = [
     { role: 'system', content: system },
-    {
-      role: 'user',
-      content:
-        (claudeMd
-          ? `PROJECT CONTEXT (CLAUDE.md):\n${claudeMd}\n\n---\n\n`
-          : '') +
-        `SPEC FILE: ${specPath}\n\n` +
-        `${spec}\n\n` +
-        (process.env.RALPH_AGENT_EXTRA_CONTEXT
-          ? `---\nADDITIONAL CONTEXT (from previous failures):\n${process.env.RALPH_AGENT_EXTRA_CONTEXT}\n\n`
-          : '') +
-        `Remember: reply with a single JSON tool action.`,
-    },
+    { role: 'user', content: userContent },
   ]
 
   let step = 0
   while (true) {
     step++
     log(`--- step ${step} ---`)
-    let modelText
+
+    let response
     try {
-      modelText = await llmChat({ provider, config, messages, timeoutSeconds, useCase })
+      response = await llmChat({
+        provider, config, messages, timeoutSeconds, useCase,
+        toolFormat,
+        tools: nativeTools
+      })
     } catch (e) {
       log(`model error: ${String(e)}`)
       process.exit(2)
     }
 
-    let action
-    try {
-      action = JSON.parse(stripToJsonObject(modelText))
-    } catch (e) {
-      messages.push({
-        role: 'assistant',
-        content: modelText,
-      })
-      messages.push({
-        role: 'user',
-        content:
-          `Your response was not valid JSON. Reply again with EXACTLY ONE JSON object tool action. Error: ${String(e).slice(0, 200)}`,
-      })
-      continue
+    // Parse the action based on tool format
+    let action = null
+
+    if (toolFormat === 'native' && response.toolCall) {
+      // Native tool calling - parse from structured response
+      action = parseNativeToolCall(response.toolCall)
+      if (!action) {
+        messages.push({ role: 'assistant', content: response.content || '' })
+        messages.push({ role: 'user', content: 'Tool call parsing failed. Please try again.' })
+        continue
+      }
+    } else {
+      // JSON-in-text format - parse from content
+      const modelText = response.content || ''
+      try {
+        action = parseJsonTextResponse(modelText)
+      } catch (e) {
+        messages.push({ role: 'assistant', content: modelText })
+        messages.push({
+          role: 'user',
+          content: `Your response was not valid JSON. Reply again with EXACTLY ONE JSON object tool action. Error: ${String(e).slice(0, 200)}`,
+        })
+        continue
+      }
     }
 
     const act = action?.action
     if (typeof act !== 'string' || act.length === 0) {
       if (process.env.RALPH_AGENT_DEBUG) {
-        console.log('[agent] invalid response (missing action). raw:')
-        console.log(String(modelText).slice(0, 1000))
+        console.log('[agent] invalid response (missing action)')
       }
-
-      messages.push({ role: 'assistant', content: modelText })
+      messages.push({ role: 'assistant', content: response.content || '' })
       messages.push({
         role: 'user',
-        content:
-          'INVALID RESPONSE: missing required key "action". Reply again with EXACTLY ONE JSON object that includes "action" and follows the schema.',
+        content: 'INVALID RESPONSE: missing required key "action". Please call one of the available tools.',
       })
       continue
     }
 
+    // Function to add tool result to messages
     const respond = (payload) => {
-      messages.push({ role: 'assistant', content: JSON.stringify(action) })
-      messages.push({ role: 'user', content: JSON.stringify(payload).slice(0, 15000) })
-    }
+      const resultStr = JSON.stringify(payload).slice(0, 15000)
 
-    if (act === 'read_file') {
-      const p = action.path
-      const start = Number(action.start_line || 1)
-      const end = Number(action.end_line || start + 200)
-      try {
-        const raw = await fs.readFile(p, 'utf8')
-        const lines = raw.split('\n')
-        const slice = lines.slice(start - 1, end).map((l, i) => `${start + i}: ${l}`)
-        respond({ ok: true, action: 'read_file', path: p, start_line: start, end_line: end, content: slice.join('\n') })
-      } catch (e) {
-        respond({ ok: false, action: 'read_file', error: String(e) })
-      }
-      continue
-    }
-
-    if (act === 'list_dir') {
-      const p = action.path
-      try {
-        const entries = await fs.readdir(p, { withFileTypes: true })
-        respond({
-          ok: true,
-          action: 'list_dir',
-          path: p,
-          entries: entries
-            .slice(0, 200)
-            .map((e) => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' })),
+      if (toolFormat === 'native' && action._toolCallId) {
+        // Native format: use tool message type
+        messages.push({
+          role: 'assistant',
+          content: null,
+          tool_calls: [{
+            id: action._toolCallId,
+            type: 'function',
+            function: {
+              name: action.action,
+              arguments: JSON.stringify({ ...action, _toolCallId: undefined, action: undefined })
+            }
+          }]
         })
-      } catch (e) {
-        respond({ ok: false, action: 'list_dir', error: String(e) })
+        messages.push({
+          role: 'tool',
+          tool_call_id: action._toolCallId,
+          content: resultStr
+        })
+      } else {
+        // JSON-text format: use user message
+        messages.push({ role: 'assistant', content: JSON.stringify(action) })
+        messages.push({ role: 'user', content: resultStr })
       }
-      continue
     }
 
-    if (act === 'search') {
-      const pattern = action.pattern
-      const p = action.path || '.'
-      const res = run(`grep -R -n -- "${pattern.replaceAll('"', '\\"')}" "${p.replaceAll('"', '\\"')}" | head -50 || true`)
-      respond({ ok: true, action: 'search', path: p, pattern, stdout: res.stdout, stderr: res.stderr })
-      continue
-    }
-
-    if (act === 'run') {
-      const cmd = action.cmd
-      log(`run: ${cmd.slice(0, 80)}${cmd.length > 80 ? '...' : ''}`)
-      const res = run(cmd)
-      log(`  -> exit=${res.exitCode}`)
-      respond({ ok: res.exitCode === 0, action: 'run', cmd, exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr })
-      continue
-    }
-
-    if (act === 'write_file') {
-      const p = action.path
-      const content = String(action.content ?? '')
-      log(`write: ${p} (${Buffer.byteLength(content)} bytes)`)
-      await fs.mkdir(path.dirname(p), { recursive: true }).catch(() => {})
-      await fs.writeFile(p, content, 'utf8')
-      respond({ ok: true, action: 'write_file', path: p, bytes: Buffer.byteLength(content) })
-      continue
-    }
-
-    if (act === 'apply_patch') {
-      const patchText = String(action.patch ?? '')
-      const tmp = path.join(os.tmpdir(), `ralph-patch-${sessionId}.patch`)
-      await fs.writeFile(tmp, patchText, 'utf8')
-      const res = run(`git apply --whitespace=nowarn "${tmp}"`, { timeoutMs: 60_000 })
-      respond({ ok: res.exitCode === 0, action: 'apply_patch', exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr })
-      continue
-    }
-
-    if (act === 'done') {
-      log(`=== DONE: ${action.summary || '(no summary)'} ===`)
-      console.log(COMPLETION_MARKER)
-      process.exit(0)
-    }
-
-    log(`unknown action: ${act}`)
-    respond({ ok: false, error: `Unknown action: ${act}` })
+    // Execute the tool action
+    await executeToolAction(action, sessionId, respond)
   }
   // Loop exits only via: done → exit(0), LLM error → exit(2), or bash timeout kills process
 }

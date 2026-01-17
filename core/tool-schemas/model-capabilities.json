@@ -1,0 +1,55 @@
+{
+  "description": "Model capabilities registry. Maps model name patterns to their optimal tool calling format.",
+  "models": {
+    "ministral": {
+      "toolFormat": "native",
+      "thinkingTags": ["[THINK]", "[/THINK]"],
+      "notes": "Mistral reasoning models use native OpenAI-style tool calling"
+    },
+    "devstral": {
+      "toolFormat": "native",
+      "thinkingTags": null,
+      "notes": "Mistral coding model, native tools, no explicit reasoning tags"
+    },
+    "qwen": {
+      "toolFormat": "json_text",
+      "thinkingTags": ["<think>", "</think>"],
+      "notes": "Qwen models work better with JSON-in-text prompting"
+    },
+    "gpt-4": {
+      "toolFormat": "native",
+      "thinkingTags": null,
+      "notes": "OpenAI models use native tool calling"
+    },
+    "gpt-3.5": {
+      "toolFormat": "native",
+      "thinkingTags": null,
+      "notes": "OpenAI models use native tool calling"
+    },
+    "claude": {
+      "toolFormat": "native",
+      "thinkingTags": null,
+      "notes": "Anthropic models use native tool calling"
+    },
+    "llama": {
+      "toolFormat": "json_text",
+      "thinkingTags": null,
+      "notes": "Llama models generally work better with JSON-in-text"
+    },
+    "codellama": {
+      "toolFormat": "json_text",
+      "thinkingTags": null,
+      "notes": "Code Llama works better with JSON-in-text"
+    },
+    "deepseek": {
+      "toolFormat": "json_text",
+      "thinkingTags": ["<think>", "</think>"],
+      "notes": "DeepSeek models use thinking tags, JSON-in-text for tools"
+    }
+  },
+  "default": {
+    "toolFormat": "json_text",
+    "thinkingTags": null,
+    "notes": "Conservative default - JSON-in-text works with most models"
+  }
+}

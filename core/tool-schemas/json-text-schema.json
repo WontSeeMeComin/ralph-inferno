@@ -1,0 +1,58 @@
+{
+  "description": "Schema for JSON-in-text tool calling format. Used in system prompt.",
+  "instructions": "You can only communicate by returning EXACTLY ONE JSON object per turn. Your JSON MUST include an 'action' key.",
+  "tools": {
+    "read_file": {
+      "description": "Read a file from disk",
+      "parameters": {
+        "path": "string (required)",
+        "start_line": "number (optional, default: 1)",
+        "end_line": "number (optional, default: start_line + 200)"
+      },
+      "example": "{\"action\":\"read_file\",\"path\":\"package.json\",\"start_line\":1,\"end_line\":50}"
+    },
+    "list_dir": {
+      "description": "List directory contents",
+      "parameters": {
+        "path": "string (required)"
+      },
+      "example": "{\"action\":\"list_dir\",\"path\":\"src\"}"
+    },
+    "search": {
+      "description": "Search for a pattern in files",
+      "parameters": {
+        "pattern": "string (required)",
+        "path": "string (optional, default: current dir)"
+      },
+      "example": "{\"action\":\"search\",\"pattern\":\"TODO\",\"path\":\"src\"}"
+    },
+    "write_file": {
+      "description": "Write content to a file",
+      "parameters": {
+        "path": "string (required)",
+        "content": "string (required)"
+      },
+      "example": "{\"action\":\"write_file\",\"path\":\"src/utils.ts\",\"content\":\"export const hello = 'world';\"}"
+    },
+    "apply_patch": {
+      "description": "Apply a git-format patch",
+      "parameters": {
+        "patch": "string (required, git diff format)"
+      }
+    },
+    "run": {
+      "description": "Run a shell command",
+      "parameters": {
+        "cmd": "string (required)"
+      },
+      "example": "{\"action\":\"run\",\"cmd\":\"npm run build\"}"
+    },
+    "done": {
+      "description": "Signal spec completion",
+      "parameters": {
+        "summary": "string (required)"
+      },
+      "example": "{\"action\":\"done\",\"summary\":\"Implemented login form with validation\"}"
+    }
+  }
+}
