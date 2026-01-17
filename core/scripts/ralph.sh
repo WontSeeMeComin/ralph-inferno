@@ -181,7 +181,12 @@ Before DONE: run 'npm run build' and verify it passes."
 
 	        if should_use_llm_agent; then
 	            # LLM agent loop (LM Studio / Ollama / OpenRouter). No Claude dependency.
-	            output=$(RALPH_AGENT_EXTRA_CONTEXT="$agent_extra_context" timeout $TIMEOUT node "$SCRIPT_DIR/agent-run.mjs" "$spec" --use-case execute 2>&1) || exit_code=$?
+	            # Use tee to stream output while capturing it
+	            local tmplog="/tmp/ralph-agent-$$.log"
+	            RALPH_AGENT_EXTRA_CONTEXT="$agent_extra_context" timeout $TIMEOUT node "$SCRIPT_DIR/agent-run.mjs" "$spec" --use-case execute 2>&1 | tee "$tmplog"
+	            exit_code=${PIPESTATUS[0]}
+	            output=$(cat "$tmplog" 2>/dev/null)
+	            rm -f "$tmplog"
 	        else
 	            output=$(echo "$prompt" | timeout $TIMEOUT claude --dangerously-skip-permissions -p 2>&1) || exit_code=$?
 	        fi
@@ -192,9 +197,13 @@ Before DONE: run 'npm run build' and verify it passes."
         fi
 
         if [ $exit_code -eq 124 ]; then
-            log "${RED}Timeout${NC}"
+            log "${RED}Timeout (${TIMEOUT}s)${NC}"
             ((attempt++))
             continue
+        fi
+
+        if [ $exit_code -ne 0 ]; then
+            log "${RED}Agent exited with code $exit_code${NC}"
         fi
 
 	        if echo "$output" | grep -q "$COMPLETION_MARKER"; then

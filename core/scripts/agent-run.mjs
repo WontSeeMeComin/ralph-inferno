@@ -10,8 +10,15 @@ import { spawnSync } from 'node:child_process'
 
 const COMPLETION_MARKER = '<promise>DONE</promise>'
 
+// Timestamped logging
+function log(msg) {
+  const ts = new Date().toISOString().slice(11, 19)
+  console.log(`[${ts}] ${msg}`)
+}
+
 function die(msg, code = 1) {
-  console.error(msg)
+  const ts = new Date().toISOString().slice(11, 19)
+  console.error(`[${ts}] ERROR: ${msg}`)
   process.exit(code)
 }
 
@@ -99,6 +106,23 @@ function modelFor({ provider, config, useCase }) {
 }
 
 async function llmChat({ provider, config, messages, timeoutSeconds, useCase }) {
+  const model = modelFor({ provider, config, useCase })
+  log(`llm: provider=${provider} model=${model} msgs=${messages.length} timeout=${timeoutSeconds}s`)
+  const startTime = Date.now()
+
+  try {
+    const result = await _llmChatImpl({ provider, config, messages, timeoutSeconds, useCase })
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+    log(`llm: response in ${elapsed}s (${result.length} chars)`)
+    return result
+  } catch (e) {
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+    log(`llm: FAILED after ${elapsed}s - ${e.message}`)
+    throw e
+  }
+}
+
+async function _llmChatImpl({ provider, config, messages, timeoutSeconds, useCase }) {
   if (provider === 'ollama') {
     const host = envOr(config, 'RALPH_OLLAMA_HOST', (c) => c.llm?.ollama?.host, 'http://localhost:11434')
     const model = modelFor({ provider, config, useCase })
@@ -254,7 +278,10 @@ async function main() {
   const maxSteps = Number(process.env.RALPH_AGENT_MAX_STEPS || 30)
 
   const sessionId = crypto.randomUUID?.() ?? crypto.randomBytes(16).toString('hex')
-  console.log(`[agent] session=${sessionId} useCase=${useCase} provider=${provider} spec=${specPath}`)
+  log(`=== AGENT START ===`)
+  log(`spec: ${specPath}`)
+  log(`provider: ${provider} | model: ${modelFor({ provider, config, useCase })}`)
+  log(`timeout: ${timeoutSeconds}s | maxSteps: ${maxSteps}`)
 
   const toolSpec = {
     read_file: { path: 'string', start_line: 'number?', end_line: 'number?' },
@@ -304,11 +331,12 @@ Rules:
   ]
 
   for (let step = 1; step <= maxSteps; step++) {
+    log(`--- step ${step}/${maxSteps} ---`)
     let modelText
     try {
       modelText = await llmChat({ provider, config, messages, timeoutSeconds, useCase })
     } catch (e) {
-      console.log(`[agent] model error: ${String(e).slice(0, 500)}`)
+      log(`model error: ${String(e)}`)
       process.exit(2)
     }
 
@@ -343,8 +371,6 @@ Rules:
       })
       continue
     }
-
-    console.log(`[agent] step ${step}: ${act}`)
 
     const respond = (payload) => {
       messages.push({ role: 'assistant', content: JSON.stringify(action) })
@@ -394,7 +420,9 @@ Rules:
 
     if (act === 'run') {
       const cmd = action.cmd
+      log(`run: ${cmd.slice(0, 80)}${cmd.length > 80 ? '...' : ''}`)
       const res = run(cmd)
+      log(`  -> exit=${res.exitCode}`)
       respond({ ok: res.exitCode === 0, action: 'run', cmd, exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr })
       continue
     }
@@ -402,6 +430,7 @@ Rules:
     if (act === 'write_file') {
       const p = action.path
       const content = String(action.content ?? '')
+      log(`write: ${p} (${Buffer.byteLength(content)} bytes)`)
       await fs.mkdir(path.dirname(p), { recursive: true }).catch(() => {})
       await fs.writeFile(p, content, 'utf8')
       respond({ ok: true, action: 'write_file', path: p, bytes: Buffer.byteLength(content) })
@@ -418,15 +447,16 @@ Rules:
     }
 
     if (act === 'done') {
-      console.log(`[agent] done: ${action.summary || ''}`)
+      log(`=== DONE: ${action.summary || '(no summary)'} ===`)
       console.log(COMPLETION_MARKER)
       process.exit(0)
     }
 
+    log(`unknown action: ${act}`)
     respond({ ok: false, error: `Unknown action: ${act}` })
   }
 
-  console.log('[agent] max steps reached without completion')
+  log(`=== FAILED: max steps (${maxSteps}) reached ===`)
   process.exit(3)
 }
 

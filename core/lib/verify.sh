@@ -3,8 +3,8 @@
 # Source this file: source lib/verify.sh
 
 # Also source selfheal if not already loaded
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-[ -z "${SELFHEAL_LOADED:-}" ] && source "$SCRIPT_DIR/selfheal.sh"
+_VERIFY_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+[ -z "${SELFHEAL_LOADED:-}" ] && source "$_VERIFY_DIR/selfheal.sh"
 
 # Verify build passes
 verify_build() {
