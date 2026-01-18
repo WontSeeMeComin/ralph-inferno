@@ -284,7 +284,7 @@ By continuing, you accept full responsibility for usage.
     },
     // LLM/inference configuration (can be overridden via env vars)
     // Default keeps existing Claude-based workflows intact.
-    LLM: {
+    llm: {
       provider: 'claude', // auto | lmstudio | ollama | openrouter | claude
       fallback_provider: 'claude',
       agent_mode: 'claude', // claude | llm (llm = local/OpenRouter agent-run)
