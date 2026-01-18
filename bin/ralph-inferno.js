@@ -50,4 +50,16 @@ program
     await plan(opts);
   });
 
+program
+  .command('run-local')
+  .description('Run a spec file locally with sandbox and transcript support')
+  .argument('<spec>', 'Path to the spec file to execute')
+  .option('--sandbox <mode>', 'Sandbox mode: strict|permissive|monitor (default: monitor)', 'monitor')
+  .option('--verbose', 'Show all thoughts and tool calls')
+  .option('--dry-run', 'Parse but don\'t execute commands')
+  .action(async (spec, opts) => {
+    const { runLocal } = await import('../cli/run-local.js');
+    await runLocal(spec, opts);
+  });
+
 program.parse();

@@ -2,26 +2,45 @@
 import { log } from './utils.mjs'
 
 /**
- * Extract [THOUGHT]...[/THOUGHT] block from response text.
- * Returns the thought content and the remainder of the text.
+ * Extract thought block from response text using configurable tag formats.
+ * Tries each [openTag, closeTag] pair in order, returning the first match.
+ *
+ * @param {string} text - The response text to parse
+ * @param {Array<[string, string]>|null} thinkingTags - Array of [open, close] tag pairs, or null for default
+ * @returns {{ thought: string|null, remainder: string, format: string|null }}
  */
-export function extractThoughtBlock(text) {
-  const match = text.match(/\[THOUGHT\]([\s\S]*?)\[\/THOUGHT\]/i)
-  if (match) {
-    const thought = match[1].trim()
-    const remainder = text.replace(match[0], '').trim()
-    return { thought, remainder }
+export function extractThoughtBlock(text, thinkingTags = null) {
+  // Default fallback tags
+  const tagPairs = thinkingTags || [['[THOUGHT]', '[/THOUGHT]']]
+
+  for (const [openTag, closeTag] of tagPairs) {
+    // Escape special regex characters in tags
+    const escaped = [openTag, closeTag].map(t =>
+      t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    )
+    const regex = new RegExp(`${escaped[0]}([\\s\\S]*?)${escaped[1]}`, 'i')
+    const match = text.match(regex)
+    if (match) {
+      return {
+        thought: match[1].trim(),
+        remainder: text.replace(match[0], '').trim(),
+        format: openTag  // Track which format was used
+      }
+    }
   }
-  return { thought: null, remainder: text }
+  return { thought: null, remainder: text, format: null }
 }
 
 /**
  * Parse block-text format response: [TOOL_NAME]...[/TOOL_NAME]
  * This format avoids JSON escaping issues with code content.
+ *
+ * @param {string} text - The response text to parse
+ * @param {Array<[string, string]>|null} thinkingTags - Optional thinking tag pairs
  */
-export function parseBlockTextResponse(text) {
+export function parseBlockTextResponse(text, thinkingTags = null) {
   // Extract thought first
-  const { thought, remainder } = extractThoughtBlock(text)
+  const { thought, remainder, format: thoughtFormat } = extractThoughtBlock(text, thinkingTags)
 
   // Strip <tool_code> wrapper if present
   let cleanText = remainder
@@ -40,7 +59,7 @@ export function parseBlockTextResponse(text) {
   const body = toolMatch[2].trim()
 
   // Parse key: value pairs from body
-  const result = { action, _thought: thought }
+  const result = { action, _thought: thought, _thoughtFormat: thoughtFormat }
   const lines = body.split('\n')
   let currentKey = null
   let contentLines = []
@@ -105,10 +124,13 @@ export function parseNativeToolCall(toolCall) {
 /**
  * Parse JSON-in-text response (legacy format, kept as fallback).
  * Also extracts thought block if present.
+ *
+ * @param {string} text - The response text to parse
+ * @param {Array<[string, string]>|null} thinkingTags - Optional thinking tag pairs
  */
-export function parseJsonTextResponse(text) {
+export function parseJsonTextResponse(text, thinkingTags = null) {
   // Extract thought first
-  const { thought, remainder } = extractThoughtBlock(text)
+  const { thought, remainder, format: thoughtFormat } = extractThoughtBlock(text, thinkingTags)
 
   const jsonStr = stripToJsonObject(remainder)
   const result = JSON.parse(jsonStr)
@@ -116,6 +138,7 @@ export function parseJsonTextResponse(text) {
   // Attach thought if found
   if (thought) {
     result._thought = thought
+    result._thoughtFormat = thoughtFormat
   }
 
   return result
@@ -124,18 +147,20 @@ export function parseJsonTextResponse(text) {
 /**
  * Unified parser that tries block_text first, falls back to JSON.
  * This enables smooth migration from json_text to block_text.
+ *
+ * @param {string} text - The response text to parse
+ * @param {boolean} preferBlockText - Whether to try block_text format first
+ * @param {Array<[string, string]>|null} thinkingTags - Optional thinking tag pairs
  */
-export function parseTextResponse(text, preferBlockText = true) {
-  const { thought, remainder } = extractThoughtBlock(text)
-
+export function parseTextResponse(text, preferBlockText = true, thinkingTags = null) {
   if (preferBlockText) {
     // Try block_text format first
     try {
-      return parseBlockTextResponse(text)
+      return parseBlockTextResponse(text, thinkingTags)
     } catch (blockErr) {
       // Fall back to JSON format
       try {
-        const result = parseJsonTextResponse(text)
+        const result = parseJsonTextResponse(text, thinkingTags)
         log(`Parsed as JSON (block_text fallback): ${result.action}`)
         return result
       } catch (jsonErr) {
@@ -146,11 +171,11 @@ export function parseTextResponse(text, preferBlockText = true) {
   } else {
     // Try JSON format first (for backwards compatibility)
     try {
-      return parseJsonTextResponse(text)
+      return parseJsonTextResponse(text, thinkingTags)
     } catch (jsonErr) {
       // Fall back to block_text
       try {
-        return parseBlockTextResponse(text)
+        return parseBlockTextResponse(text, thinkingTags)
       } catch (blockErr) {
         throw jsonErr
       }

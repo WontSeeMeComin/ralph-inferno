@@ -14,12 +14,14 @@ import { loadToolSchema, loadModelCapabilities, getModelCapabilities } from './a
 import { llmChat } from './agent-lib/llm.mjs'
 import { parseNativeToolCall, parseTextResponse, extractThoughtBlock } from './agent-lib/parsers.mjs'
 import { buildSystemPromptNative, buildSystemPromptBlockText } from './agent-lib/prompts.mjs'
+import { createTranscript } from './agent-lib/transcript.mjs'
+import { createSandbox } from './agent-lib/sandbox.mjs'
 
 // ============================================================================
 // Tool Execution
 // ============================================================================
 
-async function executeToolAction(action, sessionId, respond) {
+async function executeToolAction(action, sessionId, respond, transcript = null) {
   const act = action.action
 
   if (act === 'read_file') {
@@ -30,37 +32,44 @@ async function executeToolAction(action, sessionId, respond) {
       const raw = await fs.readFile(p, 'utf8')
       const lines = raw.split('\n')
       const slice = lines.slice(start - 1, end).map((l, i) => `${start + i}: ${l}`)
-      respond({ ok: true, action: 'read_file', path: p, start_line: start, end_line: end, content: slice.join('\n') })
+      const result = { ok: true, action: 'read_file', path: p, start_line: start, end_line: end, content: slice.join('\n') }
+      respond(result)
+      return result
     } catch (e) {
-      respond({ ok: false, action: 'read_file', error: String(e) })
+      const result = { ok: false, action: 'read_file', error: String(e) }
+      respond(result)
+      return result
     }
-    return true
   }
 
   if (act === 'list_dir') {
     const p = action.path
     try {
       const entries = await fs.readdir(p, { withFileTypes: true })
-      respond({
+      const result = {
         ok: true,
         action: 'list_dir',
         path: p,
         entries: entries
           .slice(0, 200)
           .map((e) => ({ name: e.name, type: e.isDirectory() ? 'dir' : 'file' })),
-      })
+      }
+      respond(result)
+      return result
     } catch (e) {
-      respond({ ok: false, action: 'list_dir', error: String(e) })
+      const result = { ok: false, action: 'list_dir', error: String(e) }
+      respond(result)
+      return result
     }
-    return true
   }
 
   if (act === 'search') {
     const pattern = action.pattern
     const p = action.path || '.'
     const res = run(`grep -R -n -- "${pattern.replaceAll('"', '\\"')}" "${p.replaceAll('"', '\\"')}" | head -50 || true`)
-    respond({ ok: true, action: 'search', path: p, pattern, stdout: res.stdout, stderr: res.stderr })
-    return true
+    const result = { ok: true, action: 'search', path: p, pattern, stdout: res.stdout, stderr: res.stderr }
+    respond(result)
+    return result
   }
 
   if (act === 'run') {
@@ -68,8 +77,9 @@ async function executeToolAction(action, sessionId, respond) {
     log(`run: ${cmd.slice(0, 80)}${cmd.length > 80 ? '...' : ''}`)
     const res = run(cmd)
     log(`  -> exit=${res.exitCode}`)
-    respond({ ok: res.exitCode === 0, action: 'run', cmd, exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr })
-    return true
+    const result = { ok: res.exitCode === 0, action: 'run', cmd, exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr }
+    respond(result)
+    return result
   }
 
   if (act === 'write_file') {
@@ -78,8 +88,9 @@ async function executeToolAction(action, sessionId, respond) {
     log(`write: ${p} (${Buffer.byteLength(content)} bytes)`)
     await fs.mkdir(path.dirname(p), { recursive: true }).catch(() => {})
     await fs.writeFile(p, content, 'utf8')
-    respond({ ok: true, action: 'write_file', path: p, bytes: Buffer.byteLength(content) })
-    return true
+    const result = { ok: true, action: 'write_file', path: p, bytes: Buffer.byteLength(content) }
+    respond(result)
+    return result
   }
 
   if (act === 'apply_patch') {
@@ -87,20 +98,23 @@ async function executeToolAction(action, sessionId, respond) {
     const tmp = path.join(os.tmpdir(), `ralph-patch-${sessionId}.patch`)
     await fs.writeFile(tmp, patchText, 'utf8')
     const res = run(`git apply --whitespace=nowarn "${tmp}"`, { timeoutMs: 60_000 })
-    respond({ ok: res.exitCode === 0, action: 'apply_patch', exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr })
-    return true
+    const result = { ok: res.exitCode === 0, action: 'apply_patch', exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr }
+    respond(result)
+    return result
   }
 
   if (act === 'done') {
     log(`=== DONE: ${action.summary || '(no summary)'} ===`)
+    await transcript?.complete(action.summary || '(no summary)')
     console.log(COMPLETION_MARKER)
     process.exit(0)
   }
 
   // Unknown action
   log(`unknown action: ${act}`)
-  respond({ ok: false, error: `Unknown action: ${act}` })
-  return true
+  const result = { ok: false, error: `Unknown action: ${act}` }
+  respond(result)
+  return result
 }
 
 // ============================================================================
@@ -179,13 +193,40 @@ async function main() {
   const timeoutSeconds = Number(envOr(config, 'RALPH_LLM_TIMEOUT_SECONDS', (c) => c.llm?.timeout_seconds, '120'))
 
   const sessionId = crypto.randomUUID?.() ?? crypto.randomBytes(16).toString('hex')
+
+  // Initialize sandbox for command gating
+  const sandbox = createSandbox({
+    mode: process.env.RALPH_SANDBOX_MODE || 'permissive',
+    projectRoot: process.cwd()
+  })
+
+  // Initialize transcript for session logging (enabled in local mode)
+  const transcript = process.env.RALPH_TRANSCRIPT
+    ? createTranscript(sessionId)
+    : null
+
+  const verbose = !!process.env.RALPH_VERBOSE
+  const dryRun = !!process.env.RALPH_DRY_RUN
+
   log(`=== AGENT START ===`)
   log(`spec: ${specPath}`)
   log(`provider: ${provider} | model: ${model}`)
-  log(`toolFormat: ${toolFormat} | thinkingTags: [THOUGHT]...[/THOUGHT]`)
+  log(`toolFormat: ${toolFormat} | thinkingTags: ${JSON.stringify(thinkingTags[0])}`)
   log(`timeout: ${timeoutSeconds}s | steps: unlimited (bash timeout governs)`)
+  log(`sandbox: ${sandbox.mode} | transcript: ${transcript ? 'enabled' : 'disabled'}`)
   log(`CLAUDE.md: ${claudeMd ? `loaded (${claudeMd.length} chars)` : 'not found'}`)
   log(`git context: ${gitLog ? 'loaded' : 'none'}`)
+
+  // Log session start to transcript
+  if (transcript) {
+    await transcript.start({
+      spec: specPath,
+      provider,
+      model,
+      toolFormat,
+      sandboxMode: sandbox.mode
+    })
+  }
 
   // Build system prompt based on tool format
   const system = toolFormat === 'native'
@@ -242,10 +283,15 @@ async function main() {
 
       // Extract thought from content if present (native format may still include thoughts)
       if (response.content) {
-        const { thought } = extractThoughtBlock(response.content)
+        const { thought, format: thoughtFormat } = extractThoughtBlock(response.content, thinkingTags)
         if (thought && action) {
           action._thought = thought
+          action._thoughtFormat = thoughtFormat
           log(`[THOUGHT] ${thought.slice(0, 100)}${thought.length > 100 ? '...' : ''}`)
+          if (verbose) {
+            console.log(`\n${thoughtFormat || '[THOUGHT]'}\n${thought}\n${thoughtFormat ? thoughtFormat.replace('<', '</') : '[/THOUGHT]'}\n`)
+          }
+          await transcript?.thought(step, thought, thoughtFormat)
         }
       }
 
@@ -258,11 +304,16 @@ async function main() {
       // Block-text format - parse from content
       const modelText = response.content || ''
       try {
-        action = parseTextResponse(modelText, true) // preferBlockText=true
+        action = parseTextResponse(modelText, true, thinkingTags) // preferBlockText=true, pass thinkingTags
 
         // Log thought if present
         if (action._thought) {
           log(`[THOUGHT] ${action._thought.slice(0, 100)}${action._thought.length > 100 ? '...' : ''}`)
+          if (verbose) {
+            const fmt = action._thoughtFormat || '[THOUGHT]'
+            console.log(`\n${fmt}\n${action._thought}\n${fmt.replace('<', '</').replace('[', '[/')}\n`)
+          }
+          await transcript?.thought(step, action._thought, action._thoughtFormat)
         }
       } catch (e) {
         messages.push({ role: 'assistant', content: modelText })
@@ -299,6 +350,34 @@ Error: ${String(e).slice(0, 200)}`,
       continue
     }
 
+    // Sandbox gating for run commands
+    if (action.action === 'run') {
+      const check = sandbox.isCommandAllowed(action.cmd)
+      if (!check.allowed) {
+        log(`BLOCKED: ${action.cmd.slice(0, 50)}... - ${check.reason}`)
+        await transcript?.blocked(step, action.cmd, check.reason)
+
+        // Add to messages so model knows it was blocked
+        messages.push({ role: 'assistant', content: `<tool_code>\n[run]\ncmd: ${action.cmd}\n[/run]\n</tool_code>` })
+        messages.push({ role: 'user', content: JSON.stringify({ ok: false, error: `Command blocked by sandbox: ${check.reason}` }) })
+        continue
+      }
+      if (check.shouldLog) {
+        log(`[sandbox] ${action.cmd.slice(0, 60)}${action.cmd.length > 60 ? '...' : ''}`)
+      }
+    }
+
+    // Dry-run mode: log but don't execute
+    if (dryRun && ['run', 'write_file', 'apply_patch'].includes(action.action)) {
+      log(`DRY-RUN: ${action.action} - ${JSON.stringify(action).slice(0, 100)}...`)
+      await transcript?.toolCall(step, action.action, action)
+      await transcript?.toolResult(step, action.action, { ok: true, dryRun: true }, 0)
+
+      messages.push({ role: 'assistant', content: `<tool_code>\n[${action.action}]\n...\n[/${action.action}]\n</tool_code>` })
+      messages.push({ role: 'user', content: JSON.stringify({ ok: true, dryRun: true, message: 'Dry run - command not executed' }) })
+      continue
+    }
+
     // Function to add tool result to messages
     const respond = (payload) => {
       const resultStr = JSON.stringify(payload).slice(0, 15000)
@@ -315,7 +394,7 @@ Error: ${String(e).slice(0, 200)}`,
             type: 'function',
             function: {
               name: action.action,
-              arguments: JSON.stringify({ ...action, _toolCallId: undefined, action: undefined, _thought: undefined })
+              arguments: JSON.stringify({ ...action, _toolCallId: undefined, action: undefined, _thought: undefined, _thoughtFormat: undefined })
             }
           }]
         })
@@ -333,7 +412,7 @@ Error: ${String(e).slice(0, 200)}`,
         // Reconstruct the tool call in block format for history
         assistantContent += `<tool_code>\n[${action.action}]\n`
         for (const [k, v] of Object.entries(action)) {
-          if (k === 'action' || k === '_thought') continue
+          if (k === 'action' || k === '_thought' || k === '_thoughtFormat') continue
           if (typeof v === 'string' && v.includes('\n')) {
             assistantContent += `${k}:\n${v}\n`
           } else {
@@ -347,8 +426,15 @@ Error: ${String(e).slice(0, 200)}`,
       }
     }
 
-    // Execute the tool action
-    await executeToolAction(action, sessionId, respond)
+    // Log tool call to transcript before execution
+    const startTime = Date.now()
+    await transcript?.toolCall(step, action.action, action)
+
+    // Execute the tool action (pass transcript for done action)
+    const result = await executeToolAction(action, sessionId, respond, transcript)
+
+    // Log result to transcript after execution
+    await transcript?.toolResult(step, action.action, result || {}, Date.now() - startTime)
   }
   // Loop exits only via: done → exit(0), LLM error → exit(2), or bash timeout kills process
 }
