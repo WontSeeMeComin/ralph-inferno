@@ -1,6 +1,6 @@
 # /ralph:plan - Create Implementation Plan
 
-Analyze PRD and create implementation plan with executable specs.
+Analyze PRD and create implementation plan with detailed, executable specs.
 
 ## Usage
 ```
@@ -12,16 +12,16 @@ Analyze PRD and create implementation plan with executable specs.
 
 ## Output
 - `docs/IMPLEMENTATION_PLAN.md` - Overview with epics and tasks
-- `specs/*.md` - Executable spec files for each task (this runs ralph on VM)
+- `specs/*.md` - Detailed executable spec files for each task
 
 ## Instructions
 
 Read `docs/prd.md` and create an implementation plan.
 
 **PHASE 1: ANALYZE THE PRD**
-1. read `docs/prd.md` carefully
-2. identify all features and requirements
-3. group into logical epics
+1. Read `docs/prd.md` carefully
+2. Identify all features and requirements
+3. Group into logical epics
 
 **PHASE 2: CREATE IMPLEMENTATION_PLAN.md**
 
@@ -42,7 +42,6 @@ Create the file with this structure:
 ### Critical (E1: {epic-name})
 - [ ] T1: {Specific task}
 - [ ] T2: {Task}
-- [ ] **HARD STOP** - Verify base flow works
 
 ### High (E2: {epic-name})
 - [ ] T3: {Task}
@@ -70,9 +69,9 @@ Create the file with this structure:
 ## Blocked
 ```
 
-**PHASE 3: CREATE SPECS FILES (MANDATORY)**
+**PHASE 3: CREATE DETAILED SPEC FILES (MANDATORY)**
 
-ALWAYS create executable spec files in `specs/`. This is what ralph runs on the VM.
+ALWAYS create executable spec files in `specs/`. These specs will be executed by mid-tier OSS models, so they need EXPLICIT, DETAILED instructions.
 
 ```
 specs/
@@ -82,66 +81,143 @@ specs/
 └── ...
 ```
 
-**Spec file format (MINIMUM for small context window):**
+## SPEC FILE FORMAT (DETAILED FOR OSS MODEL EXECUTION)
+
+The executor model may be a smaller OSS model (not Claude). It needs explicit step-by-step guidance:
+
 ```markdown
-# {Task-name}
+# {Task Name}
 
-{1-2 sentences about what to build}
+{1-2 sentences describing what to build}
 
-## Requirements
-- {Concrete requirement 1}
-- {Concrete requirement 2}
+## Implementation Steps
+
+1. {Explicit step with exact command or action}
+2. {Next step}
+3. {Continue with specific instructions}
+
+## Files to Create/Modify
+
+### `path/to/file.ts`
+{Description of what this file should contain}
+```typescript
+// Key code structure or example
+interface Example {
+  id: string;
+}
+```
+
+### `path/to/another.ts`
+{Description}
+
+## Commands to Run
+```bash
+{Any npm/shell commands needed}
+```
 
 ## Done when
 - [ ] `npm run build` passes
-- [ ] {Specific verification from PRD}
+- [ ] {Specific verification criteria}
 ```
 
-> Only include testing setup if the PRD explicitly requests it.
+## EXAMPLE OF GOOD DETAILED SPEC
 
-**IMPORTANT - KEEP SPECS MINIMAL:**
-- MAX 20 lines per spec
-- No background/context - Claude reads the code
-- No implementation details - Claude knows how
-- Only WHAT, not HOW
-- One spec = one focused task
-
-**EXAMPLE OF GOOD SPECS:**
 ```markdown
-# Auth Context
+# Project Setup
 
-Create React context for authentication with Supabase.
+Initialize Vite + React + TypeScript + Tailwind CSS project with folder structure.
 
-## Requirements
-- AuthProvider wrapper
-- useAuth hook (user, signIn, signOut)
-- Automatic session refresh
+## Implementation Steps
+
+1. Initialize Vite project (if no package.json exists):
+   ```bash
+   npm create vite@latest . -- --template react-ts
+   npm install
+   ```
+
+2. Install Tailwind CSS:
+   ```bash
+   npm install -D tailwindcss postcss autoprefixer
+   npx tailwindcss init -p
+   ```
+
+3. Configure Tailwind in `tailwind.config.js`
+4. Add Tailwind directives to `src/index.css`
+5. Create folder structure under `src/`
+6. Update `src/App.tsx` with minimal starting point
+
+## Files to Create/Modify
+
+### `tailwind.config.js`
+Update content array to include all source files:
+```javascript
+export default {
+  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  theme: { extend: {} },
+  plugins: [],
+}
+```
+
+### `src/index.css`
+Replace contents with Tailwind directives:
+```css
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+```
+
+### `src/App.tsx`
+Create minimal starting point:
+```tsx
+function App() {
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <h1 className="text-2xl font-bold p-4">App</h1>
+    </div>
+  )
+}
+export default App
+```
+
+### Folder Structure
+Create these directories (with .gitkeep if empty):
+- `src/components/`
+- `src/pages/`
+- `src/hooks/`
+- `src/utils/`
+- `src/data/`
+
+## Commands to Run
+```bash
+npm install
+npm run build
+```
 
 ## Done when
-- [ ] `npm run build` passes
-- [ ] Can log in/out via hook
+- [ ] `npm run build` passes without errors
+- [ ] `npm run dev` starts and shows the app
+- [ ] Tailwind classes render correctly (visible styled h1)
 ```
 
-**EXAMPLE OF BAD SPECS (too long):**
-```markdown
-# Auth Context
+## SPEC WRITING RULES
 
-## Background
-Authentication is important for...
-[10 lines of context]
+1. **Be explicit** - Don't assume the model knows common patterns
+2. **Include code snippets** - Show expected file contents
+3. **List exact commands** - Shell commands the model should run
+4. **One task per spec** - Keep specs focused
+5. **Clear done criteria** - Specific, verifiable conditions
+6. **No testing unless PRD requests it** - Skip test setup by default
 
-## Implementation
-1. Create src/contexts/AuthContext.tsx
-2. Import createContext from react
-3. ...
-[20 lines of implementation details]
-```
+## WHY DETAILED SPECS MATTER
 
-**RULES:**
-- One task = one sentence without "and"
-- HARD STOP between priority levels
-- Critical blockers first
-- Tasks grouped under their epic
+The executor may be a mid-tier model (ministral, qwen, etc.) running via LM Studio or Ollama. These models:
+- Need explicit step-by-step instructions
+- Benefit from code examples showing expected structure
+- May not infer common patterns automatically
+- Work better with concrete commands vs abstract descriptions
+
+The frontier agent (you, during /ralph:plan) does the THINKING.
+The executor agent follows INSTRUCTIONS.
 
 **WHEN READY:**
 Type:
