@@ -139,14 +139,14 @@ Ask the user with AskUserQuestion:
 ```
 Which mode do you want to run Ralph in?
 
-1. Standard (E2E + auto-CR) - Recommended
-   Run specs with Playwright tests, generates auto-fix on errors
+1. Standard (with orchestration) - Recommended
+   Run specs with orchestrator, generates auto-fix on errors
 
 2. Quick (build only)
    Fastest - just spec execution and build verify
 
 3. Inferno (everything + parallel)
-   Full power - E2E, auto-CR, design review, parallel worktrees
+   Full power - orchestration, auto-CR, design review, parallel worktrees
 ```
 
 Save the selection:
@@ -202,7 +202,7 @@ EOF
 ```
 
 **MODES:**
-- Standard: `--orchestrate` (E2E + auto-CR)
+- Standard: `--orchestrate` (orchestration + auto-CR)
 - Quick: (no flags) - just build verify
 - Inferno: `--orchestrate --parallel` (everything)
 

@@ -74,25 +74,13 @@ Create the file with this structure:
 
 ALWAYS create executable spec files in `specs/`. This is what ralph runs on the VM.
 
-** **Templates:** See `templates/SPEC-template.md` and `templates/specs/01-project-setup.md`
-
 ```
 specs/
-├── 01-project-setup.md   ← MUST include Playwright!
-├── 02-database-schema.md
-├── 03-auth-context.md
-├── 04-login-page.md
+├── 01-project-setup.md
+├── 02-{feature}.md
+├── 03-{feature}.md
 └── ...
 ```
-
-**CRITICAL - 01-project-setup MUST contain:**
-- Vite + React + TypeScript setup
-- Tailwind with design tokens from PRD
-- **Playwright installation** (`npx playwright install`)
-- `playwright.config.ts`
-- `e2e/smoke.spec.ts`
-
-> ⚠️ Without Playwright, ralph's test loop will not work!
 
 **Spec file format (MINIMUM for small context window):**
 ```markdown
@@ -104,15 +92,12 @@ specs/
 - {Concrete requirement 1}
 - {Concrete requirement 2}
 
-## E2E Test
-Write test in `e2e/{feature}.spec.ts` that verifies:
-- {what the test should check}
-
 ## Done when
 - [ ] `npm run build` passes
-- [ ] E2E test passes
-- [ ] {Specific verification}
+- [ ] {Specific verification from PRD}
 ```
+
+> Only include testing setup if the PRD explicitly requests it.
 
 **IMPORTANT - KEEP SPECS MINIMAL:**
 - MAX 20 lines per spec
