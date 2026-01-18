@@ -7,6 +7,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const CORE_DIR = join(__dirname, '..', 'core');
+const STACKS_DIR = join(__dirname, '..', 'stacks');
 const TARGET_DIR = '.ralph';
 const CONFIG_FILE = join(TARGET_DIR, 'config.json');
 
@@ -52,6 +53,15 @@ export async function update() {
 
   if (!config.llm.use_case_providers) config.llm.use_case_providers = {};
 
+  // Backfill plugins config (new in unopinionated refactor)
+  if (!config.plugins) {
+    config.plugins = {
+      verify: 'auto',
+      test: 'auto',
+      screenshot: 'auto'
+    };
+  }
+
   console.log(chalk.dim('Current config:'));
   console.log(chalk.dim(`  Provider: ${config.provider || 'none'}`));
   console.log(chalk.dim(`  Language: ${config.language || 'en'}`));
@@ -79,7 +89,7 @@ export async function update() {
   // Update core directories
   console.log(chalk.cyan('Updating core files...'));
 
-  const dirs = ['lib', 'scripts', 'templates', '.claude'];
+  const dirs = ['lib', 'scripts', 'templates', 'plugins', '.claude'];
   for (const dir of dirs) {
     const src = join(CORE_DIR, dir);
     const dest = join(TARGET_DIR, dir);
@@ -92,6 +102,15 @@ export async function update() {
       const files = await countFiles(dest);
       console.log(chalk.green(`✅ ${dir}/ updated (${files} files)`));
     }
+  }
+
+  // Update stacks from root-level stacks/
+  if (await fs.pathExists(STACKS_DIR)) {
+    const stacksDest = join(TARGET_DIR, 'templates', 'stacks');
+    await fs.remove(stacksDest);
+    await fs.copy(STACKS_DIR, stacksDest);
+    const files = await countFiles(stacksDest);
+    console.log(chalk.green(`✅ stacks/ updated (${files} files)`));
   }
 
   // Also copy .claude/commands to project root (where Claude Code reads from)

@@ -176,7 +176,38 @@ Reply with number:
 
 ---
 
-## STEP 5: Tasks (Brownfield only)
+## STEP 5: Testing preferences
+
+```
+Does your project need automated testing?
+
+1) Yes - I want automated tests (recommended for production apps)
+2) No - Skip automated testing
+3) Auto-detect - Let Ralph detect and use available test frameworks
+
+Reply with number:
+```
+
+If user selects "Yes":
+```
+Which test framework?
+
+1) Playwright - E2E browser testing (great for web apps)
+2) Jest/Vitest - Unit/integration tests for JS/TS
+3) pytest - Python testing
+4) Auto-detect - Let Ralph detect from project config
+5) Other - I'll specify in PRD
+
+Reply with number:
+```
+
+Save the selection to:
+1. PRD under "Testing Strategy" section
+2. `.ralph/config.json` under `plugins.test` field
+
+---
+
+## STEP 6: Tasks (Brownfield only)
 
 ### If Brownfield:
 
@@ -220,7 +251,7 @@ Then ask (free text): "Files to avoid changing? (or 'none'):"
 
 ---
 
-## STEP 6: Credentials (only if relevant)
+## STEP 7: Credentials (only if relevant)
 
 If Supabase was selected:
 ```
@@ -242,7 +273,7 @@ Similar for Firebase (FIREBASE_PROJECT_ID, FIREBASE_API_KEY).
 
 ---
 
-## STEP 7: Confirm VM setup
+## STEP 8: Confirm VM setup
 
 Read config and show what's configured:
 ```bash
@@ -261,7 +292,7 @@ To change: run "npx ralph-inferno install" again
 
 ---
 
-## STEP 8: Generate output
+## STEP 9: Generate output
 
 When all info is collected:
 
@@ -275,10 +306,28 @@ PRD should contain:
 - Type (greenfield/brownfield)
 - Tech stack
 - Features/tasks
+- Testing strategy (framework and test command based on user's choice)
 - Constraints
 - VM/deploy info (if configured)
 
-### 2. Copy template files (if template was selected)
+### 2. Update .ralph/config.json with plugins
+
+If testing was configured, update config:
+```bash
+# Read existing config, add plugins section
+```
+
+The config should have:
+```json
+{
+  "plugins": {
+    "verify": "auto",
+    "test": "{user's choice: playwright|jest|pytest|auto|none}"
+  }
+}
+```
+
+### 3. Copy template files (if template was selected)
 ```bash
 # Copy CLAUDE.md
 cp .ralph/templates/stacks/{template}/CLAUDE.md CLAUDE.md
@@ -287,7 +336,7 @@ cp .ralph/templates/stacks/{template}/CLAUDE.md CLAUDE.md
 cp .ralph/templates/stacks/{template}/scripts/requirements.sh .ralph/scripts/requirements.sh 2>/dev/null || true
 ```
 
-### 3. Generate CLAUDE.md (if no template)
+### 4. Generate CLAUDE.md (if no template)
 
 If no template, create CLAUDE.md with:
 ```markdown
@@ -317,14 +366,15 @@ SECRETS HANDLING:
 ## Workflow
 1. Read spec carefully
 2. Implement step by step
-3. Run tests often
+3. Run build verification
 4. Output `<promise>DONE</promise>` when done
 ```
 
-### 4. Show summary
+### 5. Show summary
 - Confirm what was created:
   - docs/prd.md - Product Requirements Document
   - CLAUDE.md - Project instructions
+  - .ralph/config.json - Updated with plugins config
 - List next steps:
   1. `/ralph:plan` - Create implementation plan from PRD
   2. `/ralph:deploy` - Send to VM and run autonomously

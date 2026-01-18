@@ -20,6 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const CORE_DIR = join(__dirname, '..', 'core');
+const STACKS_DIR = join(__dirname, '..', 'stacks');
 const TARGET_DIR = '.ralph';
 const CONFIG_FILE = join(TARGET_DIR, 'config.json');
 
@@ -274,6 +275,13 @@ By continuing, you accept full responsibility for usage.
     claude: {
       auth_method: authAnswers.claudeAuth
     },
+    // Plugin configuration for build/test
+    // Values: auto | specific plugin name | none
+    plugins: {
+      verify: 'auto',  // auto | npm | cargo | go | make | none
+      test: 'auto',    // auto | playwright | jest | pytest | none
+      screenshot: 'auto' // auto | playwright | none
+    },
     // LLM/inference configuration (can be overridden via env vars)
     // Default keeps existing Claude-based workflows intact.
     LLM: {
@@ -314,7 +322,7 @@ By continuing, you accept full responsibility for usage.
   await fs.ensureDir(TARGET_DIR);
 
   // Copy core directories
-  const dirs = ['lib', 'scripts', 'templates', '.claude'];
+  const dirs = ['lib', 'scripts', 'templates', 'plugins', '.claude'];
   for (const dir of dirs) {
     const src = join(CORE_DIR, dir);
     const dest = join(TARGET_DIR, dir);
@@ -323,6 +331,14 @@ By continuing, you accept full responsibility for usage.
       const files = await fs.readdir(dest).catch(() => []);
       console.log(chalk.green(`✅ ${dir}/ installed (${files.length} items)`));
     }
+  }
+
+  // Copy stacks to templates/stacks (from root-level stacks/)
+  if (await fs.pathExists(STACKS_DIR)) {
+    const stacksDest = join(TARGET_DIR, 'templates', 'stacks');
+    await fs.copy(STACKS_DIR, stacksDest);
+    const stacks = await fs.readdir(stacksDest).catch(() => []);
+    console.log(chalk.green(`✅ stacks/ installed (${stacks.length} templates)`));
   }
 
   // Also copy .claude/commands to project root (where Claude Code reads from)

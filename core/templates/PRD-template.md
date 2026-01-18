@@ -100,7 +100,6 @@
 | Database | {tech} | {why} |
 | Auth | {tech} | {why} |
 | Hosting | {tech} | {why} |
-| **Testing** | Playwright + Vitest | E2E + Unit |
 
 ### Architecture
 {Overarching architecture decisions}
@@ -111,26 +110,27 @@
 
 ---
 
-## Testing Strategy
+## Testing Strategy (Optional)
 
-### E2E Testing (Playwright)
-> ⚠️ Playwright MUST be installed in 01-project-setup
+> Configure testing based on your project needs. Skip if not required.
 
-**Critical flows to test:**
+### Test Framework
+| Type | Framework | Command |
+|------|-----------|---------|
+| {E2E/Unit/Integration} | {framework or "none"} | {e.g., npm test} |
+
+### Critical Flows to Test
 - [ ] {User flow 1} - e.g. login → dashboard
 - [ ] {User flow 2} - e.g. create item → see in list
-- [ ] {User flow 3} - e.g. checkout → confirmation
 
-**Test-setup:**
+### Test Setup (if applicable)
 ```bash
-npx playwright install    # Install browsers
-npx playwright test       # Run tests
-```
+# Install test dependencies
+{install command, e.g., npm install}
 
-### Unit Testing
-- Framework: Vitest (for Vite projects)
-- Focus: Hooks, utilities, business logic
-- Target: >70% coverage on critical code
+# Run tests
+{test command, e.g., npm test}
+```
 
 ---
 
@@ -141,7 +141,7 @@ npx playwright test       # Run tests
 |--------|-----|----------|
 | First Contentful Paint | <1.5s | Lighthouse |
 | Time to Interactive | <3s | Lighthouse |
-| Bundle size | <500KB | npm run build |
+| Bundle size | <500KB | build output |
 
 ### Accessibility
 - [ ] WCAG 2.1 AA compliance

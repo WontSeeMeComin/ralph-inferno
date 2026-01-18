@@ -1,5 +1,5 @@
 #!/bin/bash
-# test-loop.sh - E2E testing with Playwright + CR generation
+# test-loop.sh - Plugin-based testing with CR generation
 # Source this file: source lib/test-loop.sh
 
 TEST_LOOP_LOADED=true
@@ -8,38 +8,131 @@ TEST_LOOP_LOADED=true
 CR_DEPTH=${CR_DEPTH:-0}
 MAX_CR_DEPTH=1  # Only allow 1 level of CR (no CR-of-CR)
 
+# Get RALPH_DIR for plugin paths
+_TEST_LOOP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+RALPH_DIR="${RALPH_DIR:-$(dirname "$_TEST_LOOP_DIR")}"
+
 # Check if we're in a CR context
 is_cr_spec() {
     local spec_name="$1"
-    [[ "$spec_name" == CR-fix-* ]]
+    [[ "$spec_name" == CR-fix-* ]] || [[ "$spec_name" == CR-design-* ]]
 }
 
-# Run Playwright E2E tests
+# =============================================================================
+# PLUGIN-BASED TEST RUNNER
+# =============================================================================
+
+# Get configured test plugin from .ralph/config.json
+get_test_plugin() {
+    local config_file=".ralph/config.json"
+    if [ -f "$config_file" ]; then
+        jq -r '.plugins.test // "auto"' "$config_file" 2>/dev/null || echo "auto"
+    else
+        echo "auto"
+    fi
+}
+
+# Auto-detect test framework from project files
+auto_detect_test_framework() {
+    # Playwright
+    if [ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]; then
+        echo "playwright"
+        return
+    fi
+
+    # Jest/Vitest
+    if [ -f "jest.config.js" ] || [ -f "jest.config.ts" ] || [ -f "vitest.config.js" ] || [ -f "vitest.config.ts" ]; then
+        echo "jest"
+        return
+    fi
+
+    # Check package.json for test frameworks
+    if [ -f "package.json" ]; then
+        if grep -q '"playwright"' package.json 2>/dev/null; then
+            echo "playwright"
+            return
+        fi
+        if grep -q '"jest"\|"vitest"' package.json 2>/dev/null; then
+            echo "jest"
+            return
+        fi
+    fi
+
+    # Python pytest
+    if [ -f "pytest.ini" ] || [ -f "pyproject.toml" ]; then
+        if [ -f "pyproject.toml" ] && grep -q "pytest" pyproject.toml 2>/dev/null; then
+            echo "pytest"
+            return
+        fi
+        if [ -f "pytest.ini" ]; then
+            echo "pytest"
+            return
+        fi
+    fi
+
+    # No framework detected
+    echo "none"
+}
+
+# Run tests using the configured plugin
+run_tests() {
+    local test_plugin=$(get_test_plugin)
+
+    case "$test_plugin" in
+        none)
+            log "${YELLOW}Tests disabled via config${NC}"
+            return 0
+            ;;
+        playwright)
+            source "$RALPH_DIR/plugins/test/playwright.sh"
+            run_playwright
+            ;;
+        jest)
+            source "$RALPH_DIR/plugins/test/jest.sh"
+            run_jest
+            ;;
+        pytest)
+            source "$RALPH_DIR/plugins/test/pytest.sh"
+            run_pytest
+            ;;
+        auto|*)
+            auto_detect_and_run_tests
+            ;;
+    esac
+}
+
+# Auto-detect and run appropriate test framework
+auto_detect_and_run_tests() {
+    local detected=$(auto_detect_test_framework)
+
+    case "$detected" in
+        playwright)
+            source "$RALPH_DIR/plugins/test/playwright.sh"
+            run_playwright
+            ;;
+        jest)
+            source "$RALPH_DIR/plugins/test/jest.sh"
+            run_jest
+            ;;
+        pytest)
+            source "$RALPH_DIR/plugins/test/pytest.sh"
+            run_pytest
+            ;;
+        none|*)
+            log "${YELLOW}No test framework detected, skipping tests${NC}"
+            return 0
+            ;;
+    esac
+}
+
+# Legacy alias for backwards compatibility
 run_e2e_tests() {
-    # Skip if no playwright config
-    if [ ! -f "playwright.config.ts" ] && [ ! -f "playwright.config.js" ]; then
-        return 0
-    fi
-
-    log "${CYAN}Running E2E tests...${NC}"
-
-    local output
-    local exit_code=0
-    output=$(npx playwright test --reporter=line 2>&1) || exit_code=$?
-
-    if [ $exit_code -eq 0 ]; then
-        log "${GREEN}✅ E2E tests passed${NC}"
-        return 0
-    fi
-
-    log "${RED}❌ E2E tests failed${NC}"
-    echo "$output" > .test-output.log
-
-    # Show summary of failures
-    echo "$output" | grep -E "(✘|Error|FAIL|failed)" | head -10
-
-    return 1
+    run_tests
 }
+
+# =============================================================================
+# CR GENERATION
+# =============================================================================
 
 # Generate CR spec from test failure
 generate_cr() {
@@ -59,7 +152,7 @@ generate_cr() {
 
     # Use LLM provider to generate CR markdown, then write it ourselves.
     # (This allows local inference providers that don't have file-system tools.)
-    local prompt="E2E tests failed after running spec: $spec_name
+    local prompt="Tests failed after running spec: $spec_name
 
 Test output:
 $test_output
@@ -71,7 +164,7 @@ IMPORTANT:
 - Keep it concise but actionable
 
 Use this format:
-# CR: Fix E2E test failure from $spec_name
+# CR: Fix test failure from $spec_name
 
 **Problem:** <what failed>
 **Root cause:** <why it likely failed>
@@ -80,8 +173,8 @@ Use this format:
 - <specific code changes needed>
 
 ## Done when
-- [ ] E2E tests pass
-- [ ] npm run build succeeds"
+- [ ] Tests pass
+- [ ] Build succeeds"
 
     llm_generate_to_file "$prompt" "$cr_file" "generate_cr" "execute" >/dev/null 2>&1 || true
 
@@ -95,39 +188,103 @@ Use this format:
 }
 
 # =============================================================================
-# CLAUDE VISION - Design Review
+# SCREENSHOTS (Plugin-based)
 # =============================================================================
+
+# Get the configured screenshot tool
+get_screenshot_tool() {
+    local config_file=".ralph/config.json"
+    if [ -f "$config_file" ]; then
+        jq -r '.plugins.screenshot // "auto"' "$config_file" 2>/dev/null || echo "auto"
+    else
+        echo "auto"
+    fi
+}
+
+# Get the configured dev server URL from PRD or config
+get_dev_server_url() {
+    local config_file=".ralph/config.json"
+    local prd_file=""
+
+    # Try config first
+    if [ -f "$config_file" ]; then
+        local url=$(jq -r '.dev_server_url // ""' "$config_file" 2>/dev/null)
+        if [ -n "$url" ] && [ "$url" != "null" ]; then
+            echo "$url"
+            return
+        fi
+    fi
+
+    # Try to detect from PRD
+    if [ -f "docs/PRD.md" ]; then
+        prd_file="docs/PRD.md"
+    elif [ -f "docs/prd.md" ]; then
+        prd_file="docs/prd.md"
+    fi
+
+    if [ -n "$prd_file" ]; then
+        local url=$(grep -E "dev.*url|localhost" "$prd_file" 2>/dev/null | grep -oE "http://[^ ]+" | head -1)
+        if [ -n "$url" ]; then
+            echo "$url"
+            return
+        fi
+    fi
+
+    # Default fallback (common dev server ports)
+    if [ -f "package.json" ]; then
+        # Try to detect from package.json scripts
+        if grep -q "vite" package.json 2>/dev/null; then
+            echo "http://localhost:5173"
+            return
+        fi
+        if grep -q "next" package.json 2>/dev/null; then
+            echo "http://localhost:3000"
+            return
+        fi
+    fi
+
+    # Generic fallback
+    echo "http://localhost:3000"
+}
 
 # Take screenshots of the app
 take_screenshots() {
     local output_dir="${1:-.screenshots}"
     mkdir -p "$output_dir"
 
-    # Skip if no playwright
-    if [ ! -f "playwright.config.ts" ] && [ ! -f "playwright.config.js" ]; then
-        return 0
-    fi
+    local screenshot_tool=$(get_screenshot_tool)
 
-    log "${CYAN}Taking screenshots...${NC}"
-
-    # Take screenshot directly (no @screenshot tests needed)
-    node -e "
-const { chromium } = require('@playwright/test');
-(async () => {
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
-    await page.goto('http://localhost:5173');
-    await page.screenshot({ path: '$output_dir/home.png', fullPage: true });
-    await browser.close();
-})();
-" 2>/dev/null || true
-
-    # Count screenshots
-    local count=$(ls -1 "$output_dir"/*.png 2>/dev/null | wc -l | tr -d ' ')
-    log "Captured $count screenshot(s)"
+    case "$screenshot_tool" in
+        none)
+            log "${YELLOW}Screenshots disabled via config${NC}"
+            return 0
+            ;;
+        playwright)
+            if [ -f "$RALPH_DIR/plugins/test/playwright.sh" ]; then
+                source "$RALPH_DIR/plugins/test/playwright.sh"
+                take_playwright_screenshots "$output_dir" "$(get_dev_server_url)"
+            fi
+            ;;
+        auto|*)
+            # Auto-detect: use playwright if available
+            if [ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]; then
+                if [ -f "$RALPH_DIR/plugins/test/playwright.sh" ]; then
+                    source "$RALPH_DIR/plugins/test/playwright.sh"
+                    take_playwright_screenshots "$output_dir" "$(get_dev_server_url)"
+                fi
+            else
+                log "${YELLOW}No screenshot tool available${NC}"
+                return 0
+            fi
+            ;;
+    esac
 }
 
-# Run Claude Vision design review
+# =============================================================================
+# DESIGN REVIEW (Optional)
+# =============================================================================
+
+# Run design review (requires vision-capable LLM)
 run_design_review() {
     local spec_name="$1"
     local screenshot_dir=".screenshots"
@@ -158,7 +315,7 @@ run_design_review() {
     # Extract design system from PRD
     local design_system=$(sed -n '/## Design System/,/^## /p' "$prd_file" | head -50)
 
-    # Build prompt for Claude Vision
+    # Build prompt for vision LLM
     local prompt="Review this screenshot against the design system.
 
 DESIGN SYSTEM:
@@ -244,7 +401,7 @@ Format:
 
 ## Done when
 - [ ] Design review passes
-- [ ] npm run build succeeds"
+- [ ] Build succeeds"
 
     llm_generate_to_file "$prompt" "$cr_file" "generate_design_cr" "execute" >/dev/null 2>&1 || true
 
