@@ -207,6 +207,50 @@ npm run build
 4. **One task per spec** - Keep specs focused
 5. **Clear done criteria** - Specific, verifiable conditions
 6. **No testing unless PRD requests it** - Skip test setup by default
+7. **Show pattern once, describe variations** - Don't repeat similar code
+
+## BALANCING DETAIL VS FLEXIBILITY
+
+The goal is to give the model enough to succeed WITHOUT over-constraining it.
+
+**GOOD: Pattern + Variations**
+```markdown
+### `src/pages/HomePage.tsx`
+Create the home page component:
+```tsx
+export function HomePage() {
+  return (
+    <div className="home-page">
+      <h2 className="text-2xl font-bold text-brand-primary mb-4">Welcome</h2>
+      <p className="text-gray-700">Welcome message here.</p>
+    </div>
+  );
+}
+```
+
+### Additional Pages (follow HomePage pattern)
+Create these pages with the same structure:
+- `AboutPage.tsx` - title: "About Us"
+- `ContactPage.tsx` - title: "Contact"
+- `SettingsPage.tsx` - title: "Settings"
+```
+
+**BAD: Verbatim repetition**
+```markdown
+### `src/pages/HomePage.tsx`
+[50 lines of code]
+
+### `src/pages/AboutPage.tsx`
+[50 nearly identical lines]
+
+### `src/pages/ContactPage.tsx`
+[50 nearly identical lines]
+```
+
+**The principle**: Show complexity ONCE with full code, then describe variations concisely. This gives the model:
+- A concrete pattern to follow
+- Specific data for each variation
+- Freedom to adapt if something doesn't work
 
 ## WHY DETAILED SPECS MATTER
 
