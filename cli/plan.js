@@ -48,7 +48,7 @@ export async function plan(options = {}) {
     `PRD PATH: ${prdPath}\n\n` +
     `---\n\n${prdText}\n\n---\n\n` +
     `Follow the /ralph:plan instructions below (create docs/IMPLEMENTATION_PLAN.md and specs/*.md).\n` +
-    `Keep each spec minimal (<= 20 lines) and include Playwright in 01-project-setup.\n\n` +
+    `Keep each spec minimal (<= 20 lines). Only include testing setup if the PRD explicitly requests it.\n\n` +
     `---\n\n` +
     `${cmdText}\n\n` +
     `---\n\n` +
