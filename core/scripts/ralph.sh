@@ -98,6 +98,13 @@ fi
 # CLEAN LOOP BELOW (~120 lines)
 # =============================================================================
 
+# Load secrets if present (API keys for MCP servers, etc.)
+# This file should be gitignored and contain: export PERPLEXITY_API_KEY=...
+if [ -f ".ralph/secrets.env" ]; then
+    # shellcheck disable=SC1091
+    source ".ralph/secrets.env"
+fi
+
 # Load libraries
 source "$LIB_DIR/spec-utils.sh"
 source "$LIB_DIR/verify.sh"

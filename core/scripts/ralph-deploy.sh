@@ -194,6 +194,21 @@ sleep 5
 echo -e "${BLUE}Push project to VM...${NC}"
 "$SCRIPT_DIR/vm-sync.sh" push "$PROJECT_DIR"
 
+# Push secrets file if it exists (for MCP API keys)
+if [ -f "$PROJECT_DIR/.ralph/secrets.env" ]; then
+    echo -e "${BLUE}Push secrets to VM...${NC}"
+    "$SCRIPT_DIR/vm-sync.sh" push "$PROJECT_DIR/.ralph/secrets.env"
+    echo -e "${GREEN}✓ Secrets uploaded${NC}"
+elif [ -f ".ralph/secrets.env" ]; then
+    # Try from current directory if project doesn't have one
+    echo -e "${BLUE}Push secrets to VM...${NC}"
+    "$SCRIPT_DIR/vm-sync.sh" ssh "mkdir -p ~/workspace/.ralph"
+    "$SCRIPT_DIR/vm-sync.sh" push ".ralph/secrets.env" "~/workspace/.ralph/secrets.env"
+    echo -e "${GREEN}✓ Secrets uploaded${NC}"
+else
+    echo -e "${YELLOW}⚠ No .ralph/secrets.env found - MCP tools may be limited${NC}"
+fi
+
 echo -e "${GREEN}✓ Project uploaded to VM${NC}"
 
 # ═══════════════════════════════════════════════════════════════

@@ -16,6 +16,8 @@ import { parseNativeToolCall, parseTextResponse, extractThoughtBlock } from './a
 import { buildSystemPromptNative, buildSystemPromptBlockText } from './agent-lib/prompts.mjs'
 import { createTranscript } from './agent-lib/transcript.mjs'
 import { createSandbox } from './agent-lib/sandbox.mjs'
+import { createMcpManager, executeMcpTool } from './agent-lib/mcp-client.mjs'
+import { buildMcpToolDocs, buildMcpToolsNative, getCuratedTool, isCuratedMcpTool } from './agent-lib/mcp-tools.mjs'
 
 // ============================================================================
 // Tool Execution
@@ -200,6 +202,10 @@ async function main() {
     projectRoot: process.cwd()
   })
 
+  // Initialize MCP servers for external tool access (documentation, web search)
+  const mcpEnabled = process.env.RALPH_MCP !== '0'
+  const mcp = mcpEnabled ? await createMcpManager(['context7', 'perplexity'], config) : null
+
   // Initialize transcript for session logging (enabled in local mode)
   const transcript = process.env.RALPH_TRANSCRIPT
     ? createTranscript(sessionId)
@@ -214,6 +220,7 @@ async function main() {
   log(`toolFormat: ${toolFormat} | thinkingTags: ${JSON.stringify(thinkingTags[0])}`)
   log(`timeout: ${timeoutSeconds}s | steps: unlimited (bash timeout governs)`)
   log(`sandbox: ${sandbox.mode} | transcript: ${transcript ? 'enabled' : 'disabled'}`)
+  log(`mcp: ${mcp ? Object.keys(mcp.clients).join(', ') || 'no servers' : 'disabled'}`)
   log(`CLAUDE.md: ${claudeMd ? `loaded (${claudeMd.length} chars)` : 'not found'}`)
   log(`git context: ${gitLog ? 'loaded' : 'none'}`)
 
@@ -228,10 +235,13 @@ async function main() {
     })
   }
 
-  // Build system prompt based on tool format
+  // Build MCP tool documentation if MCP is enabled
+  const mcpToolDocs = mcp ? buildMcpToolDocs() : ''
+
+  // Build system prompt based on tool format (with MCP docs if available)
   const system = toolFormat === 'native'
-    ? buildSystemPromptNative()
-    : buildSystemPromptBlockText(blockTextSchema)
+    ? buildSystemPromptNative(mcpToolDocs)
+    : buildSystemPromptBlockText(blockTextSchema, mcpToolDocs)
 
   // Build initial user message with all context
   let userContent = ''
@@ -264,10 +274,14 @@ async function main() {
 
     let response
     try {
+      // Merge MCP tools with native tools if using native format
+      const mcpNativeTools = mcp ? buildMcpToolsNative() : []
+      const allNativeTools = nativeTools ? [...nativeTools, ...mcpNativeTools] : mcpNativeTools.length > 0 ? mcpNativeTools : null
+
       response = await llmChat({
         provider, config, messages, timeoutSeconds, useCase,
         toolFormat,
-        tools: nativeTools
+        tools: allNativeTools
       })
     } catch (e) {
       log(`model error: ${String(e)}`)
@@ -375,6 +389,14 @@ Error: ${String(e).slice(0, 200)}`,
 
       messages.push({ role: 'assistant', content: `<tool_code>\n[${action.action}]\n...\n[/${action.action}]\n</tool_code>` })
       messages.push({ role: 'user', content: JSON.stringify({ ok: true, dryRun: true, message: 'Dry run - command not executed' }) })
+      continue
+    }
+
+    // Check if this is a curated MCP tool (mcp_docs, mcp_search_web, etc.)
+    if (mcp && isCuratedMcpTool(action.action)) {
+      const toolDef = getCuratedTool(action.action)
+      const { messages: mcpMessages } = await executeMcpTool(mcp, action, toolDef, toolFormat, transcript, step)
+      messages.push(...mcpMessages)
       continue
     }
 

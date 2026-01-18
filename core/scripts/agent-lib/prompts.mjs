@@ -40,8 +40,12 @@ Before every tool call, output a [THOUGHT] block:
 /**
  * System prompt for native OpenAI-style tool calling (Claude, GPT-4, Ministral, Devstral).
  * Tools are provided via the API, not in the prompt.
+ *
+ * @param {string} mcpToolDocs - Optional MCP tool documentation to include
  */
-export function buildSystemPromptNative() {
+export function buildSystemPromptNative(mcpToolDocs = '') {
+  const mcpSection = mcpToolDocs ? `\n\n# EXTERNAL TOOLS (MCP)\n\nYou have access to additional MCP tools for documentation lookup and web search. Use them when you need external information:\n${mcpToolDocs}` : ''
+
   return `You are Ralph, an elite autonomous software engineer running in a disposable sandbox.
 Your goal is to complete the provided software specification exactly.
 
@@ -58,6 +62,7 @@ Let me list the directory to find where auth-related files are located.
 [/THOUGHT]
 
 When the spec is fully complete and verified, call the \`done\` tool with a summary of what was accomplished.
+${mcpSection}
 `
 }
 
@@ -92,8 +97,11 @@ ${paramList}
  * System prompt for block-text format (OSS models: Qwen, Llama, DeepSeek, etc.).
  * Tools are defined in the prompt using [TOOL_NAME]...[/TOOL_NAME] syntax.
  * This avoids JSON escaping issues with code content.
+ *
+ * @param {object} toolSchema - Built-in tool schema
+ * @param {string} mcpToolDocs - Optional MCP tool documentation to append
  */
-export function buildSystemPromptBlockText(toolSchema) {
+export function buildSystemPromptBlockText(toolSchema, mcpToolDocs = '') {
   const toolDocs = buildBlockTextToolDocs(toolSchema)
 
   return `You are Ralph, an elite autonomous software engineer running in a disposable sandbox.
@@ -201,7 +209,7 @@ Signal that the spec is complete. Call this when you have verified everything wo
 summary: Implemented login feature with validation and tests passing
 [/done]
 \`\`\`
-
+${mcpToolDocs}
 # ERROR RECOVERY
 
 If a tool call fails:
