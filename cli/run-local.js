@@ -157,19 +157,23 @@ export async function runLocal(specPath, options = {}) {
 
   // Set up environment with sandbox protection
   const sandboxMode = options.sandbox || 'monitor';
+  // Honor env vars OR CLI flags
+  const isVerbose = options.verbose || process.env.RALPH_VERBOSE === '1';
+  const isDryRun = options.dryRun || process.env.RALPH_DRY_RUN === '1';
+
   const env = {
     ...process.env,
     RALPH_SANDBOX_MODE: sandboxMode,
-    RALPH_VERBOSE: options.verbose ? '1' : '',
-    RALPH_DRY_RUN: options.dryRun ? '1' : '',
+    RALPH_VERBOSE: isVerbose ? '1' : '',
+    RALPH_DRY_RUN: isDryRun ? '1' : '',
     RALPH_TRANSCRIPT: '1'
   };
 
   // Display configuration
   console.log(cyan('Configuration:'));
   console.log(dim(`  Sandbox:     ${sandboxMode}`));
-  console.log(dim(`  Verbose:     ${options.verbose ? 'yes' : 'no'}`));
-  console.log(dim(`  Dry run:     ${options.dryRun ? 'yes' : 'no'}`));
+  console.log(dim(`  Verbose:     ${isVerbose ? 'yes' : 'no'}`));
+  console.log(dim(`  Dry run:     ${isDryRun ? 'yes' : 'no'}`));
   console.log(dim(`  Transcripts: .ralph/transcripts/`));
 
   if (sandboxMode === 'strict') {

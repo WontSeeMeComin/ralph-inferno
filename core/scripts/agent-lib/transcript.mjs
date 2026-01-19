@@ -2,6 +2,9 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 
+// Check verbose mode - no truncation when set
+const VERBOSE = !!process.env.RALPH_VERBOSE
+
 /**
  * Create a transcript logger for a session.
  * Writes JSONL entries for tool calls, results, thoughts, and errors.
@@ -54,10 +57,12 @@ export function createTranscript(sessionId, outputDir = '.ralph/transcripts') {
       delete sanitized._thoughtFormat
       delete sanitized._toolCallId
 
-      // Truncate large content fields for readability
-      for (const key of ['content', 'patch', 'stdout', 'stderr']) {
-        if (sanitized[key] && sanitized[key].length > 500) {
-          sanitized[key] = sanitized[key].slice(0, 500) + `... (${sanitized[key].length} chars)`
+      // Truncate large content fields for readability (skip if VERBOSE)
+      if (!VERBOSE) {
+        for (const key of ['content', 'patch', 'stdout', 'stderr']) {
+          if (sanitized[key] && sanitized[key].length > 500) {
+            sanitized[key] = sanitized[key].slice(0, 500) + `... (${sanitized[key].length} chars)`
+          }
         }
       }
 
@@ -80,7 +85,8 @@ export function createTranscript(sessionId, outputDir = '.ralph/transcripts') {
 
       // Include error if present
       if (result.error) {
-        summary.error = String(result.error).slice(0, 200)
+        const errStr = String(result.error)
+        summary.error = VERBOSE ? errStr : errStr.slice(0, 200)
       }
 
       // Include stdout/stderr length for run commands
@@ -101,8 +107,8 @@ export function createTranscript(sessionId, outputDir = '.ralph/transcripts') {
      * @param {string|null} format - Tag format used (e.g., "<think>" or "[THOUGHT]")
      */
     async thought(step, thought, format) {
-      // Truncate very long thoughts
-      const truncated = thought.length > 1000
+      // Truncate very long thoughts (skip if VERBOSE)
+      const truncated = (!VERBOSE && thought.length > 1000)
         ? thought.slice(0, 1000) + `... (${thought.length} chars)`
         : thought
 
