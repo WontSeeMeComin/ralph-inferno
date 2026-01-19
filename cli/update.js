@@ -162,10 +162,16 @@ async function ensureMcpSdk() {
   const pkgPath = 'package.json';
   const sdkPackage = '@modelcontextprotocol/sdk';
 
-  // Check if package.json exists
+  // Create package.json if it doesn't exist
   if (!await fs.pathExists(pkgPath)) {
-    console.log(chalk.dim('  No package.json found, skipping MCP SDK install'));
-    return;
+    console.log(chalk.cyan('  Creating package.json...'));
+    try {
+      execSync('npm init -y', { stdio: 'pipe' });
+      console.log(chalk.green('✅ package.json created'));
+    } catch (e) {
+      console.log(chalk.yellow(`⚠️  Could not create package.json: ${e.message}`));
+      return;
+    }
   }
 
   try {

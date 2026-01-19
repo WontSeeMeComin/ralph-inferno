@@ -9,6 +9,19 @@ import os from 'node:os'
 import crypto from 'node:crypto'
 
 import { log, die, run, envOr, COMPLETION_MARKER } from './agent-lib/utils.mjs'
+
+// Verbose mode - show full output without truncation
+const VERBOSE = !!process.env.RALPH_VERBOSE
+
+/**
+ * Truncate string for logging (respects VERBOSE mode)
+ * @param {string} str - String to truncate
+ * @param {number} maxLen - Max length (ignored if VERBOSE)
+ */
+function truncLog(str, maxLen = 200) {
+  if (VERBOSE || !str || str.length <= maxLen) return str
+  return str.slice(0, maxLen) + `... (${str.length} chars)`
+}
 import { readConfig, modelFor, selectProvider } from './agent-lib/config.mjs'
 import { loadToolSchema, loadModelCapabilities, getModelCapabilities } from './agent-lib/schemas.mjs'
 import { llmChat } from './agent-lib/llm.mjs'
@@ -78,9 +91,11 @@ async function executeToolAction(action, sessionId, respond, transcript = null) 
 
   if (act === 'run') {
     const cmd = action.cmd
-    log(`run: ${cmd.slice(0, 80)}${cmd.length > 80 ? '...' : ''}`)
+    log(`run: ${truncLog(cmd, 200)}`)
     const res = run(cmd)
     log(`  -> exit=${res.exitCode}`)
+    if (VERBOSE && res.stdout) log(`  stdout: ${res.stdout.slice(0, 500)}`)
+    if (VERBOSE && res.stderr) log(`  stderr: ${res.stderr.slice(0, 500)}`)
     const result = { ok: res.exitCode === 0, action: 'run', cmd, exitCode: res.exitCode, stdout: res.stdout, stderr: res.stderr }
     respond(result)
     return result
@@ -411,7 +426,7 @@ async function main() {
         if (thought && action) {
           action._thought = thought
           action._thoughtFormat = thoughtFormat
-          log(`[THOUGHT] ${thought.slice(0, 100)}${thought.length > 100 ? '...' : ''}`)
+          log(`[THOUGHT] ${truncLog(thought, 300)}`)
           if (verbose) {
             console.log(`\n${thoughtFormat || '[THOUGHT]'}\n${thought}\n${thoughtFormat ? thoughtFormat.replace('<', '</') : '[/THOUGHT]'}\n`)
           }
@@ -432,7 +447,7 @@ async function main() {
 
         // Log thought if present
         if (action._thought) {
-          log(`[THOUGHT] ${action._thought.slice(0, 100)}${action._thought.length > 100 ? '...' : ''}`)
+          log(`[THOUGHT] ${truncLog(action._thought, 300)}`)
           if (verbose) {
             const fmt = action._thoughtFormat || '[THOUGHT]'
             console.log(`\n${fmt}\n${action._thought}\n${fmt.replace('<', '</').replace('[', '[/')}\n`)
@@ -478,7 +493,7 @@ Error: ${String(e).slice(0, 200)}`,
     if (action.action === 'run') {
       const check = sandbox.isCommandAllowed(action.cmd)
       if (!check.allowed) {
-        log(`BLOCKED: ${action.cmd.slice(0, 50)}... - ${check.reason}`)
+        log(`BLOCKED: ${VERBOSE ? action.cmd : truncLog(action.cmd, 200)} - ${check.reason}`)
         await transcript?.blocked(step, action.cmd, check.reason)
 
         // Add to messages so model knows it was blocked
@@ -487,13 +502,13 @@ Error: ${String(e).slice(0, 200)}`,
         continue
       }
       if (check.shouldLog) {
-        log(`[sandbox] ${action.cmd.slice(0, 60)}${action.cmd.length > 60 ? '...' : ''}`)
+        log(`[sandbox] ${VERBOSE ? action.cmd : truncLog(action.cmd, 200)}`)
       }
     }
 
     // Dry-run mode: log but don't execute
     if (dryRun && ['run', 'write_file', 'apply_patch'].includes(action.action)) {
-      log(`DRY-RUN: ${action.action} - ${JSON.stringify(action).slice(0, 100)}...`)
+      log(`DRY-RUN: ${action.action} - ${truncLog(JSON.stringify(action), 300)}`)
       await transcript?.toolCall(step, action.action, action)
       await transcript?.toolResult(step, action.action, { ok: true, dryRun: true }, 0)
 
@@ -547,8 +562,25 @@ Error: ${String(e).slice(0, 200)}`,
       continue
     }
 
+    // Log tool call details
+    log(`tool: ${action.action}`)
+    if (VERBOSE) {
+      const params = { ...action }
+      delete params.action
+      delete params._thought
+      delete params._thoughtFormat
+      delete params._toolCallId
+      if (Object.keys(params).length > 0) {
+        log(`  params: ${JSON.stringify(params, null, 2).split('\n').join('\n  ')}`)
+      }
+    }
+
     // Function to add tool result to messages
     const respond = (payload) => {
+      // Log result in verbose mode
+      if (VERBOSE) {
+        log(`  result: ${JSON.stringify(payload, null, 2).split('\n').join('\n  ')}`)
+      }
       const resultStr = JSON.stringify(payload).slice(0, 15000)
 
       if (toolFormat === 'native' && action._toolCallId) {

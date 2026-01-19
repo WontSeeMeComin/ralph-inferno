@@ -93,13 +93,14 @@ export async function startServer(command, port, onExit) {
     })
 
     // Log server output for debugging
+    const verbose = !!process.env.RALPH_VERBOSE
     server.stdout?.on('data', (data) => {
       const str = data.toString().trim()
-      if (str) log(`[dev-server] ${str.slice(0, 200)}`)
+      if (str) log(`[dev-server] ${verbose ? str : str.slice(0, 200)}`)
     })
     server.stderr?.on('data', (data) => {
       const str = data.toString().trim()
-      if (str) log(`[dev-server:err] ${str.slice(0, 200)}`)
+      if (str) log(`[dev-server:err] ${verbose ? str : str.slice(0, 200)}`)
     })
 
     server.on('error', (err) => {
