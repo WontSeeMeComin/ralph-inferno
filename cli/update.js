@@ -2,6 +2,7 @@ import chalk from 'chalk';
 import fs from 'fs-extra';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { execSync } from 'child_process';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -122,6 +123,9 @@ export async function update() {
     console.log(chalk.green('✅ .claude/commands/ synced to project root'));
   }
 
+  // Ensure MCP SDK is installed (required for browser verification)
+  await ensureMcpSdk();
+
   // Config is preserved (we didn't touch it)
   console.log(chalk.green('✅ config.json preserved'));
 
@@ -148,4 +152,48 @@ async function countFiles(dir) {
   }
 
   return count;
+}
+
+/**
+ * Ensure MCP SDK is installed in the target project
+ * Required for browser verification and MCP tool access
+ */
+async function ensureMcpSdk() {
+  const pkgPath = 'package.json';
+  const sdkPackage = '@modelcontextprotocol/sdk';
+
+  // Check if package.json exists
+  if (!await fs.pathExists(pkgPath)) {
+    console.log(chalk.dim('  No package.json found, skipping MCP SDK install'));
+    return;
+  }
+
+  try {
+    const pkg = await fs.readJson(pkgPath);
+    const deps = pkg.dependencies || {};
+    const devDeps = pkg.devDependencies || {};
+
+    // Check if already installed
+    if (deps[sdkPackage] || devDeps[sdkPackage]) {
+      // Check if node_modules has it
+      const sdkPath = join('node_modules', '@modelcontextprotocol', 'sdk');
+      if (await fs.pathExists(sdkPath)) {
+        console.log(chalk.dim('  MCP SDK already installed'));
+        return;
+      }
+      // In package.json but not installed - run npm install
+      console.log(chalk.cyan('  Installing dependencies (MCP SDK in package.json but not installed)...'));
+      execSync('npm install', { stdio: 'inherit' });
+      console.log(chalk.green('✅ Dependencies installed'));
+      return;
+    }
+
+    // Add to devDependencies and install
+    console.log(chalk.cyan('  Adding MCP SDK for browser verification...'));
+    execSync(`npm install --save-dev ${sdkPackage}`, { stdio: 'inherit' });
+    console.log(chalk.green('✅ MCP SDK installed'));
+  } catch (e) {
+    console.log(chalk.yellow(`⚠️  Could not install MCP SDK: ${e.message}`));
+    console.log(chalk.dim(`   Run manually: npm install --save-dev ${sdkPackage}`));
+  }
 }
