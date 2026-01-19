@@ -18,6 +18,8 @@ import { createTranscript } from './agent-lib/transcript.mjs'
 import { createSandbox } from './agent-lib/sandbox.mjs'
 import { createMcpManager, executeMcpTool } from './agent-lib/mcp-client.mjs'
 import { buildMcpToolDocs, buildMcpToolsNative, getCuratedTool, isCuratedMcpTool } from './agent-lib/mcp-tools.mjs'
+import { isAppTool, getAppTool, buildAppToolDocs, buildAppToolsNative } from './agent-lib/app-tools.mjs'
+import { startApp, stopApp, takeScreenshot, getPageSnapshot, verifyWithVision, executePassThrough, getAppState } from './agent-lib/app-control.mjs'
 
 // ============================================================================
 // Tool Execution
@@ -120,6 +122,102 @@ async function executeToolAction(action, sessionId, respond, transcript = null) 
 }
 
 // ============================================================================
+// App Tool Execution (Browser Verification)
+// ============================================================================
+
+async function executeAppToolAction(action, mcp, config) {
+  const act = action.action
+  const toolDef = getAppTool(act)
+
+  if (!toolDef) {
+    return { ok: false, action: act, error: `Unknown app tool: ${act}` }
+  }
+
+  // Managed tools - handled by app-control with state management
+  if (toolDef.type === 'managed') {
+    switch (act) {
+      case 'app_start':
+        return await startApp(mcp, {
+          port: action.port,
+          command: action.command
+        })
+
+      case 'app_stop':
+        return await stopApp()
+
+      case 'app_verify_ui':
+        if (!action.criteria) {
+          return { ok: false, action: act, error: 'Missing required parameter: criteria' }
+        }
+        return await verifyWithVision(mcp, config, action.criteria)
+
+      default:
+        return { ok: false, action: act, error: `Unknown managed tool: ${act}` }
+    }
+  }
+
+  // Pass-through tools - delegate to chrome-devtools MCP
+  if (toolDef.type === 'passThrough') {
+    // Remove internal fields before passing to MCP
+    const params = { ...action }
+    delete params.action
+    delete params._thought
+    delete params._thoughtFormat
+    delete params._toolCallId
+
+    switch (act) {
+      case 'app_screenshot':
+        return await takeScreenshot(mcp, {
+          fullPage: params.fullPage,
+          filePath: params.filePath
+        })
+
+      case 'app_snapshot':
+        return await getPageSnapshot(mcp)
+
+      case 'app_navigate':
+        return await executePassThrough(mcp, 'navigate_page', {
+          url: params.url,
+          type: params.type || 'url'
+        })
+
+      case 'app_click':
+        return await executePassThrough(mcp, 'click', {
+          uid: params.uid,
+          dblClick: params.dblClick
+        })
+
+      case 'app_fill':
+        return await executePassThrough(mcp, 'fill', {
+          uid: params.uid,
+          value: params.value
+        })
+
+      case 'app_hover':
+        return await executePassThrough(mcp, 'hover', {
+          uid: params.uid
+        })
+
+      case 'app_press_key':
+        return await executePassThrough(mcp, 'press_key', {
+          key: params.key
+        })
+
+      case 'app_wait_for':
+        return await executePassThrough(mcp, 'wait_for', {
+          text: params.text,
+          timeout: params.timeout
+        })
+
+      default:
+        return { ok: false, action: act, error: `Unknown pass-through tool: ${act}` }
+    }
+  }
+
+  return { ok: false, action: act, error: `Invalid tool type for: ${act}` }
+}
+
+// ============================================================================
 // Main Agent Loop
 // ============================================================================
 
@@ -202,9 +300,14 @@ async function main() {
     projectRoot: process.cwd()
   })
 
-  // Initialize MCP servers for external tool access (documentation, web search)
+  // Initialize MCP servers for external tool access (documentation, web search, browser)
   const mcpEnabled = process.env.RALPH_MCP !== '0'
-  const mcp = mcpEnabled ? await createMcpManager(['context7', 'perplexity'], config) : null
+  const browserEnabled = process.env.RALPH_BROWSER !== '0'
+  const mcpServers = ['context7', 'perplexity']
+  if (browserEnabled) {
+    mcpServers.push('chromeDevtools')
+  }
+  const mcp = mcpEnabled ? await createMcpManager(mcpServers, config) : null
 
   // Initialize transcript for session logging (enabled in local mode)
   const transcript = process.env.RALPH_TRANSCRIPT
@@ -221,6 +324,7 @@ async function main() {
   log(`timeout: ${timeoutSeconds}s | steps: unlimited (bash timeout governs)`)
   log(`sandbox: ${sandbox.mode} | transcript: ${transcript ? 'enabled' : 'disabled'}`)
   log(`mcp: ${mcp ? Object.keys(mcp.clients).join(', ') || 'no servers' : 'disabled'}`)
+  log(`browser: ${(browserEnabled && mcp?.clients?.chromeDevtools) ? 'enabled' : 'disabled'}`)
   log(`CLAUDE.md: ${claudeMd ? `loaded (${claudeMd.length} chars)` : 'not found'}`)
   log(`git context: ${gitLog ? 'loaded' : 'none'}`)
 
@@ -238,10 +342,14 @@ async function main() {
   // Build MCP tool documentation if MCP is enabled
   const mcpToolDocs = mcp ? buildMcpToolDocs() : ''
 
-  // Build system prompt based on tool format (with MCP docs if available)
+  // Build app tool documentation if browser is enabled
+  const appToolDocs = (browserEnabled && mcp?.clients?.chromeDevtools) ? buildAppToolDocs() : ''
+
+  // Build system prompt based on tool format (with MCP docs and app docs if available)
+  const combinedExtraDocs = mcpToolDocs + appToolDocs
   const system = toolFormat === 'native'
-    ? buildSystemPromptNative(mcpToolDocs)
-    : buildSystemPromptBlockText(blockTextSchema, mcpToolDocs)
+    ? buildSystemPromptNative(combinedExtraDocs)
+    : buildSystemPromptBlockText(blockTextSchema, combinedExtraDocs)
 
   // Build initial user message with all context
   let userContent = ''
@@ -274,9 +382,11 @@ async function main() {
 
     let response
     try {
-      // Merge MCP tools with native tools if using native format
+      // Merge MCP tools, app tools with native tools if using native format
       const mcpNativeTools = mcp ? buildMcpToolsNative() : []
-      const allNativeTools = nativeTools ? [...nativeTools, ...mcpNativeTools] : mcpNativeTools.length > 0 ? mcpNativeTools : null
+      const appNativeTools = (browserEnabled && mcp?.clients?.chromeDevtools) ? buildAppToolsNative() : []
+      const allExtraTools = [...mcpNativeTools, ...appNativeTools]
+      const allNativeTools = nativeTools ? [...nativeTools, ...allExtraTools] : allExtraTools.length > 0 ? allExtraTools : null
 
       response = await llmChat({
         provider, config, messages, timeoutSeconds, useCase,
@@ -397,6 +507,43 @@ Error: ${String(e).slice(0, 200)}`,
       const toolDef = getCuratedTool(action.action)
       const { messages: mcpMessages } = await executeMcpTool(mcp, action, toolDef, toolFormat, transcript, step)
       messages.push(...mcpMessages)
+      continue
+    }
+
+    // Check if this is an app_* tool (browser verification)
+    if (isAppTool(action.action)) {
+      const startTime = Date.now()
+      await transcript?.toolCall(step, action.action, action)
+
+      let result
+      try {
+        result = await executeAppToolAction(action, mcp, config)
+      } catch (e) {
+        result = { ok: false, action: action.action, error: String(e) }
+      }
+
+      const resultStr = JSON.stringify(result).slice(0, 15000)
+      await transcript?.toolResult(step, action.action, result, Date.now() - startTime)
+
+      if (toolFormat === 'native' && action._toolCallId) {
+        const assistantContent = action._thought ? `[THOUGHT]\n${action._thought}\n[/THOUGHT]` : null
+        messages.push({
+          role: 'assistant',
+          content: assistantContent,
+          tool_calls: [{ id: action._toolCallId, type: 'function', function: { name: action.action, arguments: JSON.stringify(action) } }]
+        })
+        messages.push({ role: 'tool', tool_call_id: action._toolCallId, content: resultStr })
+      } else {
+        let assistantContent = action._thought ? `[THOUGHT]\n${action._thought}\n[/THOUGHT]\n\n` : ''
+        assistantContent += `<tool_code>\n[${action.action}]\n`
+        for (const [k, v] of Object.entries(action)) {
+          if (k === 'action' || k === '_thought' || k === '_thoughtFormat' || k === '_toolCallId') continue
+          assistantContent += typeof v === 'object' ? `${k}: ${JSON.stringify(v)}\n` : `${k}: ${v}\n`
+        }
+        assistantContent += `[/${action.action}]\n</tool_code>`
+        messages.push({ role: 'assistant', content: assistantContent })
+        messages.push({ role: 'user', content: resultStr })
+      }
       continue
     }
 

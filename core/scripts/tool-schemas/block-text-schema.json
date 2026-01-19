@@ -58,6 +58,85 @@
         "summary": "string (required)"
       },
       "example": "[done]\nsummary: Implemented login feature with validation and tests passing\n[/done]"
+    },
+    "app_start": {
+      "description": "Start the dev server and open a browser. MUST call this before any other app_* tools.",
+      "parameters": {
+        "port": "number (optional, default: 5173)",
+        "command": "string (optional, default: 'npm run dev')"
+      },
+      "example": "[app_start]\nport: 5173\n[/app_start]"
+    },
+    "app_stop": {
+      "description": "Stop the dev server and close the browser. Call this when done with UI verification.",
+      "parameters": {},
+      "example": "[app_stop]\n[/app_stop]"
+    },
+    "app_verify_ui": {
+      "description": "Take a screenshot and verify UI criteria using vision model. Returns PASS/FAIL with analysis.",
+      "parameters": {
+        "criteria": "string (required) - What to verify"
+      },
+      "example": "[app_verify_ui]\ncriteria: Navigation shows 6 links, page displays welcome message\n[/app_verify_ui]"
+    },
+    "app_screenshot": {
+      "description": "Take a screenshot of the current page (for debugging). Returns base64 image data.",
+      "parameters": {
+        "fullPage": "boolean (optional, default: true)",
+        "filePath": "string (optional) - Save to file path"
+      },
+      "example": "[app_screenshot]\nfullPage: true\n[/app_screenshot]"
+    },
+    "app_snapshot": {
+      "description": "Get accessibility tree snapshot of the page. Returns element UIDs for interaction.",
+      "parameters": {},
+      "example": "[app_snapshot]\n[/app_snapshot]"
+    },
+    "app_navigate": {
+      "description": "Navigate to a URL or perform browser navigation (back, forward, reload).",
+      "parameters": {
+        "url": "string (required for type=url)",
+        "type": "string (optional) - url, back, forward, reload"
+      },
+      "example": "[app_navigate]\nurl: http://localhost:5173/about\n[/app_navigate]"
+    },
+    "app_click": {
+      "description": "Click an element by its UID (get UIDs from app_snapshot).",
+      "parameters": {
+        "uid": "string (required) - Element UID from app_snapshot",
+        "dblClick": "boolean (optional, default: false)"
+      },
+      "example": "[app_click]\nuid: button-submit\n[/app_click]"
+    },
+    "app_fill": {
+      "description": "Type text into an input field or select an option from a dropdown.",
+      "parameters": {
+        "uid": "string (required) - Input element UID",
+        "value": "string (required) - Text to enter"
+      },
+      "example": "[app_fill]\nuid: input-email\nvalue: test@example.com\n[/app_fill]"
+    },
+    "app_hover": {
+      "description": "Hover over an element (useful for dropdowns, tooltips).",
+      "parameters": {
+        "uid": "string (required) - Element UID"
+      },
+      "example": "[app_hover]\nuid: menu-dropdown\n[/app_hover]"
+    },
+    "app_press_key": {
+      "description": "Press a keyboard key or key combination (Enter, Tab, Ctrl+A, etc.).",
+      "parameters": {
+        "key": "string (required) - Key or combo"
+      },
+      "example": "[app_press_key]\nkey: Enter\n[/app_press_key]"
+    },
+    "app_wait_for": {
+      "description": "Wait for specific text to appear on the page.",
+      "parameters": {
+        "text": "string (required) - Text to wait for",
+        "timeout": "number (optional, default: 5000)"
+      },
+      "example": "[app_wait_for]\ntext: Welcome to the app\ntimeout: 10000\n[/app_wait_for]"
     }
   }
 }

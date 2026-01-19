@@ -35,6 +35,14 @@ Before every tool call, output a [THOUGHT] block:
 - After every write, run \`npm run build\` (or equivalent) to verify syntax.
 - If build fails: READ the error, THINK about the cause, try a DIFFERENT solution.
 - **FORBIDDEN**: Issuing the exact same command twice after a failure.
+
+## PHASE 5: UI VERIFICATION (if spec has visual criteria)
+If your spec's "Done when" includes visual/UI criteria (e.g., "shows 6 links", "displays message"):
+1. After build passes, use \`app_start\` to start dev server and open browser
+2. Use \`app_verify_ui\` with criteria from spec to check visual rendering
+3. If FAIL: \`app_stop\`, fix code, rebuild, retry
+4. If PASS: \`app_stop\`, then call \`done\`
+- This catches issues like blank pages, missing components, rendering errors
 `
 
 /**

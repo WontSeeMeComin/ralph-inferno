@@ -61,6 +61,12 @@ const MCP_SERVERS = {
     envVar: 'PERPLEXITY_API_KEY',
     configKey: 'perplexity',
     description: 'Web search via Perplexity AI'
+  },
+  chromeDevtools: {
+    command: 'npx',
+    args: ['-y', '@anthropic/chrome-devtools-mcp@latest'],
+    claudeServerName: 'chrome-devtools', // Name in ~/.claude.json
+    description: 'Browser automation via Chrome DevTools'
   }
 }
 

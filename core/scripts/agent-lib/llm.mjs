@@ -94,3 +94,148 @@ async function _llmChatImpl({ provider, config, messages, timeoutSeconds, useCas
 
   throw new Error(`Unsupported provider: ${provider}`)
 }
+
+/**
+ * Send a vision request (image + prompt) to a vision-capable model
+ * @param {object} config - Ralph config
+ * @param {string} prompt - Text prompt for the vision model
+ * @param {string} imageBase64 - Base64 encoded image data
+ * @param {object} options - Optional settings (maxTokens, temperature)
+ * @returns {Promise<string>} - Model's response text
+ */
+export async function llmVision(config, prompt, imageBase64, options = {}) {
+  const provider = (
+    process.env.RALPH_VISION_PROVIDER ||
+    config.llm?.use_case_providers?.vision ||
+    process.env.RALPH_LLM_PROVIDER ||
+    config.llm?.provider ||
+    'lmstudio'
+  ).toLowerCase()
+
+  // Get vision model for the provider
+  const visionModel = (
+    process.env.RALPH_VISION_MODEL ||
+    config.llm?.[provider]?.vision_model ||
+    config.llm?.[provider]?.model ||
+    getDefaultVisionModel(provider)
+  )
+
+  if (!visionModel) {
+    throw new Error(`No vision model configured for provider ${provider}. Set llm.${provider}.vision_model in config.`)
+  }
+
+  log(`llmVision: provider=${provider} model=${visionModel}`)
+
+  // Build multimodal message (OpenAI-compatible format)
+  const messages = [
+    {
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        {
+          type: 'image_url',
+          image_url: { url: `data:image/png;base64,${imageBase64}` }
+        }
+      ]
+    }
+  ]
+
+  const maxTokens = options.maxTokens || 1024
+  const temperature = options.temperature ?? 0.3
+
+  if (provider === 'lmstudio') {
+    const base = envOr(config, 'RALPH_LMSTUDIO_BASE_URL', (c) => c.llm?.lmstudio?.base_url, 'http://localhost:1234')
+    const url = `${normalizeOpenAIBaseUrl(base)}/chat/completions`
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: visionModel,
+        messages,
+        max_tokens: maxTokens,
+        temperature
+      }),
+      signal: AbortSignal.timeout(60000)
+    })
+
+    const text = await resp.text()
+    if (!resp.ok) throw new Error(`LM Studio vision error ${resp.status}: ${text.slice(0, 500)}`)
+
+    const json = JSON.parse(text)
+    return json?.choices?.[0]?.message?.content ?? ''
+  }
+
+  if (provider === 'openrouter') {
+    const base = envOr(config, 'RALPH_OPENROUTER_BASE_URL', (c) => c.llm?.openrouter?.base_url, 'https://openrouter.ai/api/v1')
+    const key = process.env.RALPH_OPENROUTER_API_KEY || process.env.OPENROUTER_API_KEY || config.llm?.openrouter?.api_key
+
+    if (!key) throw new Error('OpenRouter requires OPENROUTER_API_KEY for vision')
+
+    const url = `${normalizeOpenAIBaseUrl(base)}/chat/completions`
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${key}`
+    }
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: visionModel,
+        messages,
+        max_tokens: maxTokens,
+        temperature
+      }),
+      signal: AbortSignal.timeout(60000)
+    })
+
+    const text = await resp.text()
+    if (!resp.ok) throw new Error(`OpenRouter vision error ${resp.status}: ${text.slice(0, 500)}`)
+
+    const json = JSON.parse(text)
+    return json?.choices?.[0]?.message?.content ?? ''
+  }
+
+  if (provider === 'ollama') {
+    // Ollama uses a different format for vision
+    const host = envOr(config, 'RALPH_OLLAMA_HOST', (c) => c.llm?.ollama?.host, 'http://localhost:11434')
+
+    const resp = await fetch(`${host.replace(/\/$/, '')}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: visionModel,
+        stream: false,
+        messages: [
+          {
+            role: 'user',
+            content: prompt,
+            images: [imageBase64]
+          }
+        ]
+      }),
+      signal: AbortSignal.timeout(60000)
+    })
+
+    const text = await resp.text()
+    if (!resp.ok) throw new Error(`Ollama vision error ${resp.status}: ${text.slice(0, 500)}`)
+
+    const json = JSON.parse(text)
+    return json?.message?.content ?? ''
+  }
+
+  throw new Error(`Vision not supported for provider: ${provider}`)
+}
+
+/**
+ * Get default vision model for a provider
+ */
+function getDefaultVisionModel(provider) {
+  const defaults = {
+    lmstudio: 'llava-v1.6-mistral-7b',
+    openrouter: 'openai/gpt-4o-mini',
+    ollama: 'llava'
+  }
+  return defaults[provider] || null
+}
