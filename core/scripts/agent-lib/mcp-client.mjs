@@ -64,7 +64,7 @@ const MCP_SERVERS = {
   },
   chromeDevtools: {
     command: 'npx',
-    args: ['-y', '@anthropic/chrome-devtools-mcp@latest'],
+    args: ['-y', 'chrome-devtools-mcp@latest'],
     claudeServerName: 'chrome-devtools', // Name in ~/.claude.json
     description: 'Browser automation via Chrome DevTools'
   }
